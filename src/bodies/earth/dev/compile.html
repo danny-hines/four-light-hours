@@ -1,0 +1,80 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>earth compile harness</title>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+</head><body style="margin:0;background:#000">
+<script type="module">
+// dev: compile-time harness. window.measure(kind, transform) compiles one variant of an Earth/Moon program
+// (unique tag => no cache hit), draws it once into a small HDR target and blocks on gl.finish().
+import * as THREE from 'three';
+import { EARTH_VERT, EARTH_TRANSMIT_FRAG } from '../earth-glsl.js';
+import { EARTH_RADIANCE_FRAG, EARTH_CLOUDS_FRAG, EARTH_GROUND_FRAG, EARTH_CLOUDLIGHT_FRAG, EARTH_CITY_FRAG } from '../earth-radiance.js';
+import { MOON_VERT, MOON_FRAG } from '../moon-glsl.js';
+const canvas = document.createElement('canvas');
+canvas.width = 64; canvas.height = 64;
+document.body.appendChild(canvas);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+const rt = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType, samples: 4, depthBuffer: true });
+const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+cam.position.set(0, 0, 3);
+const geo = new THREE.SphereGeometry(1, 16, 8);
+const SRC = { radiance: [EARTH_VERT, EARTH_RADIANCE_FRAG], clouds: [EARTH_VERT, EARTH_CLOUDS_FRAG], ground: [EARTH_VERT, EARTH_GROUND_FRAG], light: [EARTH_VERT, EARTH_CLOUDLIGHT_FRAG], city: [EARTH_VERT, EARTH_CITY_FRAG], transmit: [EARTH_VERT, EARTH_TRANSMIT_FRAG], moon: [MOON_VERT, MOON_FRAG] };
+window.SRC = SRC;
+let n = 0;
+window.measure = async (kind, fragOverride, vertOverride) => {
+  const [v0, f0] = SRC[kind];
+  const tag = `\n// uniq ${Date.now()}_${n++}_${Math.random()}\n`;
+  const mat = new THREE.ShaderMaterial({ vertexShader: (vertOverride || v0) + tag, fragmentShader: (fragOverride || f0) + tag,
+    uniforms: { uLoopMax: { value: 64 } } });
+  const mesh = new THREE.Mesh(geo, mat);
+  if (kind === 'moon') { mat.uniforms.uLoopMax.value = 64; const g = new THREE.BufferGeometry(); g.setAttribute('grid', new THREE.BufferAttribute(new Float32Array(6), 2)); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)); mesh.geometry = g; }
+  mesh.frustumCulled = false;
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  const gl = renderer.getContext();
+  const t0 = performance.now();
+  renderer.setRenderTarget(rt);
+  renderer.render(scene, cam);
+  gl.finish();
+  const px = new Float32Array(4);
+  const ms = performance.now() - t0;
+  const prog = renderer.info.programs[renderer.info.programs.length - 1];
+  let err = null;
+  const p = renderer.properties.get(mat).currentProgram;
+  if (p && p.diagnostics && !p.diagnostics.runnable) err = (p.diagnostics.fragmentShader.log || '') + (p.diagnostics.vertexShader.log || '');
+  let hlsl = null;
+  if (window.WANT_HLSL && p && p.program) {
+    const ext = gl.getExtension('WEBGL_debug_shaders');
+    const sh = gl.getAttachedShaders(p.program);
+    hlsl = sh.map((x) => {
+      const src = gl.getShaderSource(x);
+      const t = gl.getShaderParameter(x, gl.SHADER_TYPE);
+      const y = gl.createShader(t); gl.shaderSource(y, src); gl.compileShader(y);
+      const out = ext ? ext.getTranslatedShaderSource(y) : '';
+      return [src, out];
+    });
+  }
+  mat.dispose();
+  return { ms: Math.round(ms), err, hlsl };
+};
+// translate only (no FXC): three's full GLSL for a kind + optional fragment override -> ANGLE HLSL
+window.translate = (kind, fragOverride) => {
+  const [v0, f0] = SRC[kind];
+  const mat = new THREE.ShaderMaterial({ vertexShader: v0, fragmentShader: fragOverride || f0, uniforms: { uLoopMax: { value: 64 } } });
+  const mesh = new THREE.Mesh(geo, mat);
+  if (kind === 'moon') { mat.uniforms.uLoopMax.value = 64; const g = new THREE.BufferGeometry(); g.setAttribute('grid', new THREE.BufferAttribute(new Float32Array(6), 2)); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)); mesh.geometry = g; }
+  mesh.frustumCulled = false;
+  const scene = new THREE.Scene(); scene.add(mesh);
+  const gl = renderer.getContext();
+  renderer.compile(scene, cam);
+  const p = renderer.properties.get(mat).currentProgram;
+  const ext = gl.getExtension('WEBGL_debug_shaders');
+  const out = gl.getAttachedShaders(p.program).map((x) => {
+    const y = gl.createShader(gl.getShaderParameter(x, gl.SHADER_TYPE)); gl.shaderSource(y, gl.getShaderSource(x)); gl.compileShader(y);
+    const log = gl.getShaderInfoLog(y);
+    return { hlsl: ext.getTranslatedShaderSource(y), log };
+  });
+  mat.dispose();
+  return out;
+};
+window.ready = true;
+</script></body></html>

@@ -1,0 +1,42 @@
+{
+ "source": "Optical reconstruction from COBE/DIRBE (1.25, 60, 100, 240 um ZSMA) and IRAS ISSA 100 um; NASA, public domain",
+ "projection": "galactic; u = 0.5 - l/360 (l = 0 at centre, increasing to the left); v = (1 - y)/2 with b = 90 sinh(latK y)/sinh(latK) (b = +90 at top)",
+ "latK": 2.6,
+ "milkyway": "R = smooth ln tau_eff (mix(ln tauMin, ln tauMax, value)); G = S_bg, background light before extinction (linear radiance exp(mix(ln radMin, ln radMax, value))); B = rho (reddening fraction, linear 0..1). The unextincted near-star light is analytic: F = min(fNear[0] S_bg, fNear[1] (cap0 exp(-|b|/capB) (1 + capL cos l))^P)",
+ "dust": "ln tau_eff = R(milkyway, bilinear) + resR sign(q) |q|^(1/resG), q = (value*255 - 128)/127: effective V optical depth of the background light, IRAS resolution",
+ "resR": 2.5,
+ "resG": 1.0,
+ "fNear": [
+  0.13636363636363635,
+  0.03
+ ],
+ "cap0": 0.8,
+ "capB": 12.0,
+ "capL": 0.4,
+ "P": 1.25,
+ "radMin": 2e-05,
+ "radMax": 8.0,
+ "tauMin": 0.003,
+ "tauMax": 30.0,
+ "size": [
+  1024,
+  256
+ ],
+ "dustSize": [
+  4096,
+  1024
+ ],
+ "model": {
+  "VNEAR": 0.12,
+  "J0": 0.05,
+  "P": 1.25,
+  "GAIN": 0.25,
+  "SN0": 0.8,
+  "BN": 12.0,
+  "CL": 0.4,
+  "MID": 2.0,
+  "CG": 0.5,
+  "FM": 0.15,
+  "WK": 0.2
+ }
+}

@@ -1,0 +1,64 @@
+{
+  "source": "Yale Bright Star Catalogue, 5th rev. (Hoffleit & Warren 1991), ADC/CDS V/50; file ybsc5 from tdc-www.harvard.edu (public domain)",
+  "count": 9096,
+  "minMag": -1.46,
+  "maxMag": 7.96,
+  "layout": "u32 count; then f32 ra, f32 dec, f32 vmag, f32 bv per star",
+  "endianness": "little",
+  "units": {
+    "ra": "radians, J2000 (0..2pi)",
+    "dec": "radians, J2000 (-pi/2..pi/2)",
+    "vmag": "V magnitude",
+    "bv": "B-V colour index (0.6 substituted when missing)"
+  },
+  "order": "HR (Harvard Revised) number ascending; entries with no position skipped",
+  "bvMissingCount": 310,
+  "bytes": 145540,
+  "examples": [
+    {
+      "name": "Sirius",
+      "hr": 2491,
+      "index": 2484,
+      "ra_deg": 101.2871,
+      "dec_deg": -16.7161,
+      "vmag": -1.46,
+      "bv": 0.0
+    },
+    {
+      "name": "Vega",
+      "hr": 7001,
+      "index": 6989,
+      "ra_deg": 279.2346,
+      "dec_deg": 38.7836,
+      "vmag": 0.03,
+      "bv": 0.0
+    },
+    {
+      "name": "Betelgeuse",
+      "hr": 2061,
+      "index": 2055,
+      "ra_deg": 88.7929,
+      "dec_deg": 7.4069,
+      "vmag": 0.5,
+      "bv": 1.85
+    },
+    {
+      "name": "Polaris",
+      "hr": 424,
+      "index": 420,
+      "ra_deg": 37.9529,
+      "dec_deg": 89.2642,
+      "vmag": 2.02,
+      "bv": 0.6
+    },
+    {
+      "name": "Rigel",
+      "hr": 1713,
+      "index": 1708,
+      "ra_deg": 78.6346,
+      "dec_deg": -8.2017,
+      "vmag": 0.12,
+      "bv": -0.03
+    }
+  ]
+}

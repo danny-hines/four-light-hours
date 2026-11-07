@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# keys never get committed (root README rule 4)
+.env
+.env.*
+!.env.example
+
+# screenshots from builders and critics (~11 GB); regenerate with tools/shot.mjs
+shots/
+
+# raw public-domain downloads (~3.3 GB); assets/ holds the processed outputs, assets-src/SOURCES.md says how to refetch
+assets-src/raw/
+
+# caches
+__pycache__/
+*.pyc
+src/journey/dev/.ephem.json
+
+# generated dev artifacts (ANGLE/HLSL dumps, backups)
+*.bak
+src/**/dev/hlsl/

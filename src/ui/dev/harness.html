@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Four Light-Hours (HUD harness)</title>
+    <link rel="icon" href="data:," />
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      canvas#view { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    </style>
+    <script type="importmap">
+      { "imports": { "three": "/node_modules/three/build/three.module.js", "three/addons/": "/node_modules/three/examples/jsm/" } }
+    </script>
+  </head>
+  <body>
+    <!-- HUD test harness: the real app, with mock captions and labels added to every director shot. -->
+    <script type="module" src="/src/ui/dev/harness.js"></script>
+  </body>
+</html>

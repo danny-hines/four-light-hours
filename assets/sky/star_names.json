@@ -1,0 +1,482 @@
+[
+ {
+  "name": "Sirius",
+  "hr": 2491,
+  "ra": 1.767793,
+  "dec": -0.291751,
+  "vmag": -1.46,
+  "bayer": "9Alp CMa"
+ },
+ {
+  "name": "Canopus",
+  "hr": 2326,
+  "ra": 1.675305,
+  "dec": -0.919716,
+  "vmag": -0.72,
+  "bayer": "Alp Car"
+ },
+ {
+  "name": "Arcturus",
+  "hr": 5340,
+  "ra": 3.733528,
+  "dec": 0.334798,
+  "vmag": -0.04,
+  "bayer": "16Alp Boo"
+ },
+ {
+  "name": "Rigil Kentaurus",
+  "hr": 5459,
+  "ra": 3.837972,
+  "dec": -1.061776,
+  "vmag": -0.01,
+  "bayer": "Alp1Cen"
+ },
+ {
+  "name": "Vega",
+  "hr": 7001,
+  "ra": 4.873563,
+  "dec": 0.676902,
+  "vmag": 0.03,
+  "bayer": "3Alp Lyr"
+ },
+ {
+  "name": "Capella",
+  "hr": 1708,
+  "ra": 1.381821,
+  "dec": 0.802818,
+  "vmag": 0.08,
+  "bayer": "13Alp Aur"
+ },
+ {
+  "name": "Rigel",
+  "hr": 1713,
+  "ra": 1.372432,
+  "dec": -0.143146,
+  "vmag": 0.12,
+  "bayer": "19Bet Ori"
+ },
+ {
+  "name": "Procyon",
+  "hr": 2943,
+  "ra": 2.004082,
+  "dec": 0.091193,
+  "vmag": 0.38,
+  "bayer": "10Alp CMi"
+ },
+ {
+  "name": "Achernar",
+  "hr": 472,
+  "ra": 0.426362,
+  "dec": -0.998968,
+  "vmag": 0.46,
+  "bayer": "Alp Eri"
+ },
+ {
+  "name": "Betelgeuse",
+  "hr": 2061,
+  "ra": 1.549729,
+  "dec": 0.129276,
+  "vmag": 0.5,
+  "bayer": "58Alp Ori"
+ },
+ {
+  "name": "Hadar",
+  "hr": 5267,
+  "ra": 3.681874,
+  "dec": -1.053709,
+  "vmag": 0.61,
+  "bayer": "Bet Cen"
+ },
+ {
+  "name": "Altair",
+  "hr": 7557,
+  "ra": 5.195772,
+  "dec": 0.154782,
+  "vmag": 0.77,
+  "bayer": "53Alp Aql"
+ },
+ {
+  "name": "Aldebaran",
+  "hr": 1457,
+  "ra": 1.203928,
+  "dec": 0.288139,
+  "vmag": 0.85,
+  "bayer": "87Alp Tau"
+ },
+ {
+  "name": "Antares",
+  "hr": 6134,
+  "ra": 4.317101,
+  "dec": -0.461324,
+  "vmag": 0.96,
+  "bayer": "21Alp Sco"
+ },
+ {
+  "name": "Spica",
+  "hr": 5056,
+  "ra": 3.513319,
+  "dec": -0.194803,
+  "vmag": 0.98,
+  "bayer": "67Alp Vir"
+ },
+ {
+  "name": "Pollux",
+  "hr": 2990,
+  "ra": 2.03032,
+  "dec": 0.489148,
+  "vmag": 1.14,
+  "bayer": "78Bet Gem"
+ },
+ {
+  "name": "Fomalhaut",
+  "hr": 8728,
+  "ra": 6.011139,
+  "dec": -0.517005,
+  "vmag": 1.16,
+  "bayer": "24Alp PsA"
+ },
+ {
+  "name": "Mimosa",
+  "hr": 4853,
+  "ra": 3.34981,
+  "dec": -1.041763,
+  "vmag": 1.25,
+  "bayer": "Bet Cru"
+ },
+ {
+  "name": "Deneb",
+  "hr": 7924,
+  "ra": 5.416768,
+  "dec": 0.79029,
+  "vmag": 1.25,
+  "bayer": "50Alp Cyg"
+ },
+ {
+  "name": "Acrux",
+  "hr": 4730,
+  "ra": 3.25765,
+  "dec": -1.101288,
+  "vmag": 1.33,
+  "bayer": "Alp1Cru"
+ },
+ {
+  "name": "Regulus",
+  "hr": 3982,
+  "ra": 2.654522,
+  "dec": 0.208867,
+  "vmag": 1.35,
+  "bayer": "32Alp Leo"
+ },
+ {
+  "name": "Adhara",
+  "hr": 2618,
+  "ra": 1.826596,
+  "dec": -0.505661,
+  "vmag": 1.5,
+  "bayer": "21Eps CMa"
+ },
+ {
+  "name": "Gacrux",
+  "hr": 4763,
+  "ra": 3.277576,
+  "dec": -0.996816,
+  "vmag": 1.63,
+  "bayer": "Gam Cru"
+ },
+ {
+  "name": "Shaula",
+  "hr": 6527,
+  "ra": 4.597234,
+  "dec": -0.647585,
+  "vmag": 1.63,
+  "bayer": "35Lam Sco"
+ },
+ {
+  "name": "Bellatrix",
+  "hr": 1790,
+  "ra": 1.418655,
+  "dec": 0.110824,
+  "vmag": 1.64,
+  "bayer": "24Gam Ori"
+ },
+ {
+  "name": "Elnath",
+  "hr": 1791,
+  "ra": 1.423716,
+  "dec": 0.499295,
+  "vmag": 1.65,
+  "bayer": "112Bet Tau"
+ },
+ {
+  "name": "Miaplacidus",
+  "hr": 3685,
+  "ra": 2.41379,
+  "dec": -1.216795,
+  "vmag": 1.68,
+  "bayer": "Bet Car"
+ },
+ {
+  "name": "Alnilam",
+  "hr": 1903,
+  "ra": 1.467007,
+  "dec": -0.020978,
+  "vmag": 1.7,
+  "bayer": "46Eps Ori"
+ },
+ {
+  "name": "Alnair",
+  "hr": 8425,
+  "ra": 5.795511,
+  "dec": -0.819626,
+  "vmag": 1.74,
+  "bayer": "Alp Gru"
+ },
+ {
+  "name": "Alioth",
+  "hr": 4905,
+  "ra": 3.377336,
+  "dec": 0.976681,
+  "vmag": 1.77,
+  "bayer": "77Eps UMa"
+ },
+ {
+  "name": "Mirfak",
+  "hr": 1017,
+  "ra": 0.891529,
+  "dec": 0.870241,
+  "vmag": 1.79,
+  "bayer": "33Alp Per"
+ },
+ {
+  "name": "Dubhe",
+  "hr": 4301,
+  "ra": 2.896061,
+  "dec": 1.077755,
+  "vmag": 1.79,
+  "bayer": "50Alp UMa"
+ },
+ {
+  "name": "Kaus Australis",
+  "hr": 6879,
+  "ra": 4.817858,
+  "dec": -0.600127,
+  "vmag": 1.85,
+  "bayer": "20Eps Sgr"
+ },
+ {
+  "name": "Avior",
+  "hr": 3307,
+  "ra": 2.192628,
+  "dec": -1.038641,
+  "vmag": 1.86,
+  "bayer": "Eps Car"
+ },
+ {
+  "name": "Alkaid",
+  "hr": 5191,
+  "ra": 3.610824,
+  "dec": 0.86068,
+  "vmag": 1.86,
+  "bayer": "85Eta UMa"
+ },
+ {
+  "name": "Atria",
+  "hr": 6217,
+  "ra": 4.401131,
+  "dec": -1.204762,
+  "vmag": 1.92,
+  "bayer": "Alp TrA"
+ },
+ {
+  "name": "Peacock",
+  "hr": 7790,
+  "ra": 5.3479,
+  "dec": -0.990213,
+  "vmag": 1.94,
+  "bayer": "Alp Pav"
+ },
+ {
+  "name": "Castor",
+  "hr": 2891,
+  "ra": 1.983567,
+  "dec": 0.556556,
+  "vmag": 1.98,
+  "bayer": "66Alp Gem"
+ },
+ {
+  "name": "Alphard",
+  "hr": 3748,
+  "ra": 2.476564,
+  "dec": -0.151121,
+  "vmag": 1.98,
+  "bayer": "30Alp Hya"
+ },
+ {
+  "name": "Hamal",
+  "hr": 617,
+  "ra": 0.554898,
+  "dec": 0.409498,
+  "vmag": 2.0,
+  "bayer": "13Alp Ari"
+ },
+ {
+  "name": "Polaris",
+  "hr": 424,
+  "ra": 0.662403,
+  "dec": 1.557954,
+  "vmag": 2.02,
+  "bayer": "1Alp UMi"
+ },
+ {
+  "name": "Nunki",
+  "hr": 7121,
+  "ra": 4.953528,
+  "dec": -0.458963,
+  "vmag": 2.02,
+  "bayer": "34Sig Sgr"
+ },
+ {
+  "name": "Diphda",
+  "hr": 188,
+  "ra": 0.190197,
+  "dec": -0.313927,
+  "vmag": 2.04,
+  "bayer": "16Bet Cet"
+ },
+ {
+  "name": "Alpheratz",
+  "hr": 15,
+  "ra": 0.036601,
+  "dec": 0.507726,
+  "vmag": 2.06,
+  "bayer": "21Alp And"
+ },
+ {
+  "name": "Menkent",
+  "hr": 5288,
+  "ra": 3.694353,
+  "dec": -0.634776,
+  "vmag": 2.06,
+  "bayer": "5The Cen"
+ },
+ {
+  "name": "Kochab",
+  "hr": 5563,
+  "ra": 3.886434,
+  "dec": 1.294259,
+  "vmag": 2.08,
+  "bayer": "7Bet UMi"
+ },
+ {
+  "name": "Rasalhague",
+  "hr": 6556,
+  "ra": 4.603022,
+  "dec": 0.219213,
+  "vmag": 2.08,
+  "bayer": "55Alp Oph"
+ },
+ {
+  "name": "Denebola",
+  "hr": 4534,
+  "ra": 3.093858,
+  "dec": 0.254328,
+  "vmag": 2.14,
+  "bayer": "94Bet Leo"
+ },
+ {
+  "name": "Suhail",
+  "hr": 3634,
+  "ra": 2.391087,
+  "dec": -0.75804,
+  "vmag": 2.21,
+  "bayer": "Lam Vel"
+ },
+ {
+  "name": "Schedar",
+  "hr": 168,
+  "ra": 0.176751,
+  "dec": 0.986761,
+  "vmag": 2.23,
+  "bayer": "18Alp Cas"
+ },
+ {
+  "name": "Alphecca",
+  "hr": 5793,
+  "ra": 4.078347,
+  "dec": 0.46626,
+  "vmag": 2.23,
+  "bayer": "5Alp CrB"
+ },
+ {
+  "name": "Eltanin",
+  "hr": 6705,
+  "ra": 4.697583,
+  "dec": 0.898651,
+  "vmag": 2.23,
+  "bayer": "33Gam Dra"
+ },
+ {
+  "name": "Ankaa",
+  "hr": 99,
+  "ra": 0.114683,
+  "dec": -0.738381,
+  "vmag": 2.39,
+  "bayer": "Alp Phe"
+ },
+ {
+  "name": "Enif",
+  "hr": 8308,
+  "ra": 5.690588,
+  "dec": 0.172351,
+  "vmag": 2.39,
+  "bayer": "8Eps Peg"
+ },
+ {
+  "name": "Sabik",
+  "hr": 6378,
+  "ra": 4.495874,
+  "dec": -0.274448,
+  "vmag": 2.43,
+  "bayer": "35Eta Oph"
+ },
+ {
+  "name": "Markab",
+  "hr": 8781,
+  "ra": 6.042163,
+  "dec": 0.265382,
+  "vmag": 2.49,
+  "bayer": "54Alp Peg"
+ },
+ {
+  "name": "Menkar",
+  "hr": 911,
+  "ra": 0.795347,
+  "dec": 0.071379,
+  "vmag": 2.53,
+  "bayer": "92Alp Cet"
+ },
+ {
+  "name": "Gienah",
+  "hr": 4662,
+  "ra": 3.210562,
+  "dec": -0.306165,
+  "vmag": 2.59,
+  "bayer": "4Gam Crv"
+ },
+ {
+  "name": "Zubenelgenubi",
+  "hr": 5531,
+  "ra": 3.88719,
+  "dec": -0.27998,
+  "vmag": 2.75,
+  "bayer": "9Alp2Lib"
+ },
+ {
+  "name": "Acamar",
+  "hr": 897,
+  "ra": 0.777813,
+  "dec": -0.70345,
+  "vmag": 3.24,
+  "bayer": "The1Eri"
+ }
+]

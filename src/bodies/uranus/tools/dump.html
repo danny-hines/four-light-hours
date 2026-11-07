@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- Dev only: translates every Uranus fragment shader with ANGLE (no D3D compile: linkProgram is stubbed) and exposes
+     the HLSL as window.__hlsl for src/bodies/uranus/tools/hlsl.mjs. -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="data:," />
+    <script type="importmap">
+      { "imports": { "three": "/node_modules/three/build/three.module.js" } }
+    </script>
+  </head>
+  <body style="margin:0;background:#000">
+    <script type="module">
+      import * as THREE from 'three';
+      import { BODIES } from '/src/core/bodies-data.js';
+      import { makeShared } from '/src/bodies/uranus/shared.js';
+      import { addRingUniforms, createRings } from '/src/bodies/uranus/rings.js';
+      import { createGlobe } from '/src/bodies/uranus/globe.js';
+      import { createMoons } from '/src/bodies/uranus/moons.js';
+      window.__app = { isReady: false };
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setSize(16, 16);
+      const gl = renderer.getContext();
+      const ext = gl.getExtension('WEBGL_debug_shaders');
+      const srcs = new Map();
+      const origSource = gl.shaderSource.bind(gl);
+      gl.shaderSource = (sh, s) => { srcs.set(sh, s); origSource(sh, s); };
+      gl.linkProgram = () => {};
+      gl.getProgramParameter = (p, k) => (k === gl.LINK_STATUS ? true : null);
+      const U = { uSunColor: { value: new THREE.Vector3(1, 1, 1) } };
+      const ctx = { THREE, renderer, U, BODIES, quality: 'high', data: BODIES.uranus };
+      const S = makeShared(ctx);
+      addRingUniforms(S);
+      const globe = createGlobe(ctx, S);
+      const rings = createRings(ctx, S);
+      const moons = createMoons(ctx, S);
+      const items = [['globe', globe.mesh], ['haze', globe.shell], ['rings', rings.mesh], ...moons.map((m) => [m.id, m.mesh])];
+      window.__hlsl = {};
+      const cam = new THREE.PerspectiveCamera();
+      const seen = new Map();
+      for (const [id, mesh] of items) {
+        const before = new Set(srcs.keys());
+        try {
+          const sc = new THREE.Scene();
+          sc.add(mesh);
+          renderer.compile(sc, cam);
+        } catch (e) {}
+        for (const [sh, s] of srcs) {
+          if (before.has(sh) || gl.getShaderParameter(sh, gl.SHADER_TYPE) !== gl.FRAGMENT_SHADER) continue;
+          window.__hlsl[id] = ext ? ext.getTranslatedShaderSource(sh) : '';
+          window.__glsl = window.__glsl || {};
+          window.__glsl[id] = s;
+        }
+      }
+      window.__app.isReady = true;
+    </script>
+  </body>
+</html>

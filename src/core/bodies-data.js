@@ -1,0 +1,203 @@
+// Reference data for every body: true radii (scene units = Earth radii), moon orbits, and HUD facts.
+// Facts are curated from NASA fact sheets; HUD copy should use these numbers rather than inventing new ones.
+import { KM_PER_UNIT } from './astro.js';
+
+const R = (km) => km / KM_PER_UNIT;
+
+export const BODIES = {
+  sun: {
+    id: 'sun',
+    name: 'The Sun',
+    radiusKm: 695700,
+    radius: R(695700),
+    facts: {
+      diameter: '1,392,700 km',
+      surface: '5,500 °C',
+      core: '15 million °C',
+      mass: '99.86% of the Solar System',
+      lightToEarth: '8 min 20 s',
+    },
+  },
+  mercury: {
+    id: 'mercury',
+    name: 'Mercury',
+    radiusKm: 2439.7,
+    radius: R(2439.7),
+    facts: {
+      distance: '0.39 AU',
+      diameter: '4,879 km',
+      day: '176 Earth days (solar day)',
+      year: '88 days',
+      temperature: '−173 °C to 427 °C',
+      moons: '0',
+      gravity: '3.7 m/s²',
+    },
+  },
+  venus: {
+    id: 'venus',
+    name: 'Venus',
+    radiusKm: 6051.8,
+    radius: R(6051.8),
+    facts: {
+      distance: '0.72 AU',
+      diameter: '12,104 km',
+      day: '243 Earth days, spinning backwards',
+      year: '225 days',
+      temperature: '464 °C at the surface',
+      pressure: '92 × Earth',
+      moons: '0',
+    },
+  },
+  earth: {
+    id: 'earth',
+    name: 'Earth',
+    radiusKm: 6378.1,
+    radius: R(6378.1),
+    facts: {
+      distance: '1.00 AU',
+      diameter: '12,742 km',
+      day: '23 h 56 min',
+      year: '365.25 days',
+      temperature: '15 °C average',
+      moons: '1',
+      life: 'The only world known to harbour life',
+    },
+    moons: {
+      moon: {
+        id: 'moon',
+        name: 'The Moon',
+        radiusKm: 1737.4,
+        radius: R(1737.4),
+        aKm: 384400,
+        periodDays: 27.321661,
+        facts: { distance: '384,400 km', diameter: '3,474 km', lightTime: '1.3 s' },
+      },
+    },
+  },
+  mars: {
+    id: 'mars',
+    name: 'Mars',
+    radiusKm: 3396.2,
+    radius: R(3396.2),
+    flattening: 0.00589,
+    facts: {
+      distance: '1.52 AU',
+      diameter: '6,779 km',
+      day: '24 h 37 min',
+      year: '687 days',
+      temperature: '−63 °C average',
+      moons: '2',
+      highest: 'Olympus Mons, 21.9 km',
+    },
+    moons: {
+      phobos: { id: 'phobos', name: 'Phobos', radiusKm: 11.1, radius: R(11.1), aKm: 9376, periodDays: 0.31891 },
+      deimos: { id: 'deimos', name: 'Deimos', radiusKm: 6.2, radius: R(6.2), aKm: 23463, periodDays: 1.26244 },
+    },
+  },
+  jupiter: {
+    id: 'jupiter',
+    name: 'Jupiter',
+    radiusKm: 71492,
+    radius: R(71492),
+    flattening: 0.06487,
+    facts: {
+      distance: '5.20 AU',
+      diameter: '139,820 km',
+      day: '9 h 56 min',
+      year: '11.9 years',
+      temperature: '−110 °C cloud tops',
+      moons: '95+',
+      storm: 'Great Red Spot, wider than Earth',
+    },
+    moons: {
+      io: { id: 'io', name: 'Io', radiusKm: 1821.6, radius: R(1821.6), aKm: 421700, periodDays: 1.769138 },
+      europa: { id: 'europa', name: 'Europa', radiusKm: 1560.8, radius: R(1560.8), aKm: 671034, periodDays: 3.551181 },
+      ganymede: { id: 'ganymede', name: 'Ganymede', radiusKm: 2634.1, radius: R(2634.1), aKm: 1070412, periodDays: 7.154553 },
+      callisto: { id: 'callisto', name: 'Callisto', radiusKm: 2410.3, radius: R(2410.3), aKm: 1882709, periodDays: 16.689017 },
+    },
+  },
+  saturn: {
+    id: 'saturn',
+    name: 'Saturn',
+    radiusKm: 60268,
+    radius: R(60268),
+    flattening: 0.09796,
+    facts: {
+      distance: '9.54 AU',
+      diameter: '116,460 km',
+      day: '10 h 33 min',
+      year: '29.4 years',
+      temperature: '−140 °C cloud tops',
+      moons: '274',
+      rings: 'Main rings 280,000 km across, mostly ~10 m thick',
+      density: 'Less dense than water',
+    },
+    // Ring radii in km from Saturn's centre.
+    rings: {
+      D: [66900, 74510],
+      C: [74658, 92000],
+      B: [92000, 117580],
+      cassiniDivision: [117580, 122170],
+      A: [122170, 136775],
+      enckeGap: [133423, 133745],
+      keelerGap: [136485, 136527],
+      F: [140180, 140230],
+    },
+    moons: {
+      mimas: { id: 'mimas', name: 'Mimas', radiusKm: 198.2, radius: R(198.2), aKm: 185539, periodDays: 0.942422 },
+      enceladus: { id: 'enceladus', name: 'Enceladus', radiusKm: 252.1, radius: R(252.1), aKm: 237948, periodDays: 1.370218 },
+      tethys: { id: 'tethys', name: 'Tethys', radiusKm: 531.1, radius: R(531.1), aKm: 294619, periodDays: 1.887802 },
+      dione: { id: 'dione', name: 'Dione', radiusKm: 561.4, radius: R(561.4), aKm: 377396, periodDays: 2.736915 },
+      rhea: { id: 'rhea', name: 'Rhea', radiusKm: 763.8, radius: R(763.8), aKm: 527108, periodDays: 4.518212 },
+      titan: { id: 'titan', name: 'Titan', radiusKm: 2574.7, radius: R(2574.7), aKm: 1221870, periodDays: 15.945421 },
+    },
+  },
+  uranus: {
+    id: 'uranus',
+    name: 'Uranus',
+    radiusKm: 25559,
+    radius: R(25559),
+    flattening: 0.02293,
+    facts: {
+      distance: '19.2 AU',
+      diameter: '50,724 km',
+      day: '17 h 14 min, retrograde',
+      year: '84 years',
+      tilt: '97.8° — it orbits on its side',
+      temperature: '−224 °C, the coldest atmosphere',
+      moons: '29',
+    },
+    // Main narrow rings (km from centre).
+    rings: { '6': 41837, '5': 42234, '4': 42571, alpha: 44718, beta: 45661, eta: 47176, gamma: 47627, delta: 48300, epsilon: 51149 },
+    moons: {
+      miranda: { id: 'miranda', name: 'Miranda', radiusKm: 235.8, radius: R(235.8), aKm: 129390, periodDays: 1.413479 },
+      ariel: { id: 'ariel', name: 'Ariel', radiusKm: 578.9, radius: R(578.9), aKm: 191020, periodDays: 2.520379 },
+      umbriel: { id: 'umbriel', name: 'Umbriel', radiusKm: 584.7, radius: R(584.7), aKm: 266000, periodDays: 4.144177 },
+      titania: { id: 'titania', name: 'Titania', radiusKm: 788.9, radius: R(788.9), aKm: 435910, periodDays: 8.705872 },
+      oberon: { id: 'oberon', name: 'Oberon', radiusKm: 761.4, radius: R(761.4), aKm: 583520, periodDays: 13.463239 },
+    },
+  },
+  neptune: {
+    id: 'neptune',
+    name: 'Neptune',
+    radiusKm: 24764,
+    radius: R(24764),
+    flattening: 0.01708,
+    facts: {
+      distance: '30.1 AU',
+      diameter: '49,244 km',
+      day: '16 h 6 min',
+      year: '165 years',
+      winds: 'Up to 2,100 km/h, fastest in the Solar System',
+      lightTime: 'Sunlight takes 4 h 10 min to arrive',
+      moons: '16',
+    },
+    rings: { galle: 41900, leVerrier: 53200, lassell: 55200, arago: 57200, adams: 62932 },
+    moons: {
+      // Triton orbits retrograde, inclined ~157 deg to Neptune's equator.
+      triton: { id: 'triton', name: 'Triton', radiusKm: 1353.4, radius: R(1353.4), aKm: 354759, periodDays: -5.876854, inclinationDeg: 156.885 },
+    },
+  },
+};
+
+export const JOURNEY_ORDER = ['sun', 'mercury', 'venus', 'earth', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune'];

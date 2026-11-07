@@ -1,0 +1,117 @@
+<!doctype html>
+<!-- Dev only: times the compile + first draw of every Uranus program (globe, haze shell, rings, moons), the way the
+     film's warm-up draws them (16x16 half-float MSAA target, gl.finish). A random nonce is put into each shader so
+     neither three.js nor ANGLE nor Chrome's disk cache can reuse a program: every run is a cold FXC compile.
+     node tools/shot.mjs --page src/bodies/uranus/tools/ctime2.html --out shots/uranus/ctime2.png
+     ?n=<repeats> (default 2: the minimum is printed) -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="data:," />
+    <script type="importmap">
+      { "imports": { "three": "/node_modules/three/build/three.module.js" } }
+    </script>
+  </head>
+  <body style="margin:0;background:#000">
+    <script type="module">
+      import * as THREE from 'three';
+      import { BODIES } from '/src/core/bodies-data.js';
+      import { makeShared } from '/src/bodies/uranus/shared.js';
+      import { addRingUniforms, createRings } from '/src/bodies/uranus/rings.js';
+      import { createGlobe } from '/src/bodies/uranus/globe.js';
+      import { createMoons } from '/src/bodies/uranus/moons.js';
+      window.__app = { isReady: false, renderFrame: async () => {}, gpuInfo: () => 'ctime2' };
+      const params = new URLSearchParams(location.search);
+      const reps = Number(params.get('n') || 2);
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setSize(64, 64);
+      document.body.appendChild(renderer.domElement);
+      const gl = renderer.getContext();
+      const rt = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType, samples: 4, depthBuffer: true });
+      const U = { uSunColor: { value: new THREE.Vector3(1, 1, 1) } };
+      const ctx = { THREE, renderer, U, BODIES, quality: 'high', data: BODIES.uranus };
+      const cam = new THREE.PerspectiveCamera(40, 1, 0.001, 1e6);
+      const res = {};
+      try {
+        for (let r = 0; r < reps; r++) {
+          const S = makeShared(ctx);
+          addRingUniforms(S);
+          const globe = createGlobe(ctx, S);
+          const rings = createRings(ctx, S);
+          const moons = createMoons(ctx, S);
+          const items = [['globe', globe.mesh], ['haze', globe.shell], ['rings', rings.mesh], ...moons.map((m) => [m.id, m.mesh])];
+          // ?abl=<name,...>: dev ablations (text patches of the fragment shaders) to find what the compiler spends time on
+          const ABL = {
+            rays: [['T.alb += raySystem(p, Cn, Rc, fp, float(it) * 3.7 + uSeed);', 'T.alb += 0.0;']],
+            nets: [['for (int j = 0; j < uNNet; j++) faultNet(T, p, fp, j, 1.0 - inC);', '']],
+            canyon: [['canyon(T, p, uCaA[i], uCaB[i], uCaD[i], fp);', '']],
+            relief: [['vec3 gF = reliefFractal(T, p, fp, 1.0 - 0.45 * inC);', 'vec3 gF = vec3(0.0);']],
+            craters: [['allCraters(T, p, fp, damp);', '']],
+            mott: [['mott += a * w * snoise(', 'mott += a * w * (']],
+            corona: [['if (ci >= 0) inC = corona(T, p, ci, fp);', '']],
+            scarp: [['for (int i = 0; i < uNSc; i++) scarp(T, p, i, fp);', '']],
+            hapke: [['vec3 radM = mu0m > 0.0 ? hapke(mu0m, max(dot(p, V), 1e-3), g) : vec3(0.0);', 'vec3 radM = rad;']],
+            clouds: [['for (int i = 0; i < NCLOUD; i++) {', 'for (int i = 0; i < 0; i++) {']],
+            streak: [['if (l1 > 0.0) {', 'if (l1 > 1e9) {']],
+            cells: [['if (lodC > 0.0 && cap + poleG > 0.0) {', 'if (lodC > 1e9) {']],
+            haze: [['vec3 ins = hazeScatter(o, d, t0, tHit, L, T);', 'vec3 ins = vec3(0.0); T = vec3(1.0);']],
+            ringsh: [['shade *= ringShadow(pW, Lw, fp * uR * uKmPerUnit * 0.6);', '']],
+          };
+          for (const name of (params.get('abl') || '').split(',').filter(Boolean)) {
+            for (const [, mesh] of items) {
+              for (const [a, b] of ABL[name]) {
+                if (mesh.material.fragmentShader.includes(a)) mesh.material.fragmentShader = mesh.material.fragmentShader.split(a).join(b);
+              }
+            }
+          }
+          const seenProg = new Set();
+          for (const [id, mesh] of items) {
+            const mat = mesh.material;
+            // one nonce per distinct shader source, so moons that share a program still share it here
+            const key = mat.fragmentShader + JSON.stringify(mat.defines || {});
+            if (!seenProg.has(key)) {
+              seenProg.add(key);
+              const nonce = `\n// nonce ${Math.random()} ${performance.now()}\n`;
+              for (const [, m2] of items) {
+                if (m2.material.fragmentShader + JSON.stringify(m2.material.defines || {}) === key) m2.material.fragmentShader = nonce + m2.material.fragmentShader;
+              }
+            }
+          }
+          for (const [id, mesh] of items) {
+            const scene = new THREE.Scene();
+            mesh.position.set(0, 0, -3 * (mesh.geometry.boundingSphere?.radius || 1));
+            mesh.frustumCulled = false;
+            scene.add(mesh);
+            renderer.setRenderTarget(rt);
+            const t0 = performance.now();
+            renderer.render(scene, cam);
+            gl.finish();
+            const ms = performance.now() - t0;
+            res[id] = Math.min(res[id] ?? 1e9, ms);
+            if (params.get('dump') === '1') {
+              // translated HLSL of the fragment shader (WEBGL_debug_shaders), for src/bodies/uranus/tools/hlsl.mjs
+              const ext = gl.getExtension('WEBGL_debug_shaders');
+              const props = renderer.properties.get(mesh.material);
+              const prog = props.currentProgram?.program;
+              if (ext && prog) {
+                const sh = gl.getAttachedShaders(prog).find((s) => gl.getShaderParameter(s, gl.SHADER_TYPE) === gl.FRAGMENT_SHADER);
+                // three.js deletes its shader objects after linking: recompile the same source in a fresh object
+                const sh2 = gl.createShader(gl.FRAGMENT_SHADER);
+                gl.shaderSource(sh2, gl.getShaderSource(sh));
+                gl.compileShader(sh2);
+                (window.__hlsl ||= {})[id] = ext.getTranslatedShaderSource(sh2);
+                gl.deleteShader(sh2);
+              }
+            }
+          }
+          renderer.setRenderTarget(null);
+        }
+        const tot = Object.values(res).reduce((a, b) => a + b, 0);
+        console.log(`[app] ctime2 ${params.get('abl') || ''} (min of ${reps}): ` + Object.entries(res).map(([k, v]) => `${k} ${v.toFixed(0)}`).join(', ') + ` | total ${tot.toFixed(0)} ms`);
+      } catch (e) {
+        console.error(String(e && e.stack ? e.stack : e));
+      }
+      window.__app.isReady = true;
+    </script>
+  </body>
+</html>

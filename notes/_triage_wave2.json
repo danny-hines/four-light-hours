@@ -1,0 +1,275 @@
+{
+  "decisions": [
+    {
+      "piece": "director",
+      "decision": "continue",
+      "rounds": 2,
+      "focus": [
+        "Dead time and whip pans come from one repeated departure formula (board #1 and #2, same mechanism). About 98 s (22%) of the film has no world larger than 4 px, and the camera turns faster than 20 deg/s for 43.8 s. The lead's sheet agrees: 15 of 56 frames are empty starfield or bare glints (t=48, 72, 80, 104, 144, 176, 208, 232, 240, 280, 320, 344, 352, 368, 376). Overlap the legs: keep the departing world's limb or crescent on a third line with the destination glint already in frame, cap authored rotation at about 8-10 deg/s, or cut under a short dip to black. Shorten warp plus swell to about 5 s. This is the biggest thing a viewer feels: a quarter of the film is waiting.",
+        "Subjects leave the frame during their own beat (board #3-#5). Titan is off-frame from 330.2 to 336.4 s under its own title card. Mercury slides to NDC x=1.12 at 57.1-58.6 s. The Earth-to-Moon transfer centres the Sun with no Moon from 138.5 to 146 s (sheet t=144 is empty), then the Moon slides in already 70 px wide. Add a safe-frame constraint (target centre within |NDC| < 0.65 and outside the HUD rects), feed-forward aim for fast flybys, a log-distance arrival for the Moon, and an automated focus-in-frame test at all three epochs. Also remove the one-frame rotation kicks at 59.7 s and 263.13 s.",
+        "The finale is rushed (summary). The labelled-planet map holds about 4 s, the pale blue dot about 4 s, the credits about 3.5 s, and the Sun's glare swallows the inner orbits. The finale is one of the goal's named hero moments. Spend the 40-50 s recovered from item 1 there (map and pale blue dot at least 8 s each, readable credits) and on the hero holds (Earthrise, Saturn eclipse). Publish the new chapter/cue table early in round 1 so audio and HUD can retime against it."
+      ],
+      "redirect_criterion": null,
+      "film_window": "Whole film, 0-441.5 s. Dead spans: 41.5-52, 69.8-79.9, 96.5-107.6, 138.5-146, 169-179, 228-239, 272-285, 338-350.5, 365-376. Framing failures: 57-58.6, 138.5-146, 328-337. Finale: 414-441.5.",
+      "why": "Critical, final 6.0, down from 6.5 in round 2. Pacing and shot design are what the goal rests on most, and this piece frames, exposes and times every other piece's hero shot. It also has to absorb the inbound requests in cross_piece: warp apex framing, belt glide lighting, Venus crescent EV, Earthrise sun elevation, 8 s body beats, and no thin line art under warp. Two rounds, and it starts first because HUD and audio retime against its cut."
+    },
+    {
+      "piece": "sun",
+      "decision": "continue",
+      "rounds": 2,
+      "focus": [
+        "Prominences read as neon tubes or light-painting (board #1, structural): saturated hot-pink strands with white cores, a constant tube width, sharp edges, no diffuse envelope and no fragmentation. They are on the limb in every hero frame from t=18 to 40 (visible in the sheet at t=24 and t=32). Shift toward eclipse red with soft-clipped cores, fragment the strands along their arc length, add a diffuse envelope, and integrate a Gaussian radial profile.",
+        "Sunspots are geometric bullseyes laid out in straight, evenly spaced rows (board #2). The rows read even at thumbnail scale in the sheet at t=24 (full disc) and t=40 (skim, spots along the limb). Use irregular lobed penumbrae, multi-core umbrae, a Joy's-law group layout with offsets and fragmented followers, and a full-disc LOD that is not a donut.",
+        "The granulation's hue swing is too strong, and there is no meso- or supergranular modulation (board #3): lemon cells on orange lanes, and cheese-like blobs close in. Granulation fills the frame through the photosphere beat and under the skim (t=28-44). The fix is cheap (CHROMA about 1 at granulation scale plus a 2-4% meso/supergranular luminance modulation) and covers a large on-screen area. If round 2 has room, the skim sky is next (board #4): a flat grey 'lifted corona' fog over half the t=40 frame and a uniform spicule comb."
+      ],
+      "redirect_criterion": null,
+      "film_window": "Hero 12-45 s: 16 wide corona, 24 full disc, 28-36 close photosphere, 36-44 skim. As a point source or glare: 128-140 (Earth sunrise), 270-274 (Jupiter departure), 390-400 (Neptune), 414-436 (finale).",
+      "why": "Critical, 6.5. It is the film's first hero image and holds about 33 s of continuous screen time at peak attention. Its tells sit exactly in the hero close-ups the film uses. Two rounds."
+    },
+    {
+      "piece": "earth",
+      "decision": "continue",
+      "rounds": 2,
+      "focus": [
+        "The hero Blue Marble disc is washed out next to Apollo 17 (board #2): deep-ocean p5 is 71 vs 32, cloud p99 is 210 vs 244, and the ocean is steel-blue. This is the film's signature Earth image (t=116-124, sheet t=120) and the most-seen Earth frame. The work is calibration: top-of-atmosphere ocean reflectance, a check that aerial perspective is not double-counted, thick-cloud albedo, and a histogram match against the reference.",
+        "The Earthrise lunar foreground looks stamped (board #5): near-identical round bowls with black, soft interiors, scattered evenly, on stipple regolith. Earthrise is a named hero moment, and the ground fills the lower half of the frame for about 14 s. In the sheet at t=152 and t=160 the dark round decals read even at thumbnail scale. Use a power-law crater size distribution, morphology that changes with diameter, a per-crater degradation state, and shading from the height field instead of dark ellipses.",
+        "Clouds look procedural at close range (board #1, structural): sponge-like decks, soft blobs at 255 km, and comb-like rows of dashes. They show in the low-orbit beats at t=126-138 (terminator and night pass, orbital sunrise). Fix the dash periodicity and the grey-hole sponge first, since those read at film distance, before per-cumulus shadow marching."
+      ],
+      "redirect_criterion": "Three required views show nothing of their feature (a black sunrise, the glint off-frame, Earthrise in lunar night). That is view geometry, not shading. Judge sunrise, glint and Earthrise at the film's geometry (t=116-124, 134-138, 150-162) and at working body views (aim=sun el 74.5; dist=2.2 for the glint), and do not score the empty required views as feature failures. Also disable the asteroid belt ring (only=...) until the asteroids fix lands: the grey fog over the Earth and Moon frames is that ring, not the sky's zodiacal light.",
+      "film_window": "108-170 s: 110-114 approach, 116-124 Blue Marble, 126-138 night pass and orbital sunrise, 138-146 Moon transfer (director-owned framing), 148-162 Earthrise, 164-170 Moon departure disc.",
+      "why": "Critical, 6.5. It is the longest chapter (about 60 s) and holds two named hero moments, the Blue Marble and Earthrise. The night pass and sunrise are already near reference, so effort goes to the disc calibration and the Earthrise ground. Terminator colour and the glint are next if a round has room. Two rounds."
+    },
+    {
+      "piece": "jupiter",
+      "decision": "continue",
+      "rounds": 2,
+      "focus": [
+        "Limb darkening is too weak, so the globe looks flat-lit (board #3): the sun-side limb holds about 92% of centre brightness, where Hubble falls to about 25%. The root cause is already found: Minnaert k < 1 combined with pow(mu, k-1) brightens toward the limb. Every Jupiter frame in the film is a disc (t=244-262), so this is the fix with the most viewer time, and it is cheap.",
+        "The GRS is a crisp 'fried egg' decal at disc scale (dark-brick rim, radial salmon fill, uniform white collar) and a sponge or fingerprint at 1.12-1.6 R (board #2). It sits on the disc in the film's best Jupiter frames (Io shadow + GRS, t=252-260). Sample detail in the streamline frame, perturb the outline, cut and break up the rim, and use the Cassini GRS patch. Apply the same fixes to Oval BA.",
+        "The film's low skim (t=262-268, sheet t=264) reads as marbled paper smeared along the view direction, with no relief, towers or shadows (board #1, structural). Judge and fix it at the film's skim camera first. Start with anisotropic sampling (textureGrad with the Jacobian) to kill the smear, then colour variance and aerial perspective, then POM height and self-shadow if round 2 allows. This is the target's 'detail holds in the low skim', and the skim fills the frame."
+      ],
+      "redirect_criterion": null,
+      "film_window": "236-275 s: 240 glint, 244-250 moons strung out with card, 252-260 Io shadow + GRS, 262-268 low skim, 270-274 departure crescent (small, at frame right).",
+      "why": "Critical and the lowest-scoring critical (5.5), and a named hero world. It is about 7 at disc scale and about 4 close up, so round 1 takes the cheap, high-coverage disc fixes (limb, GRS) and round 2 takes the skim. The departure crescent and festoons rank lower because the crescent is small in the film frame. Two rounds."
+    },
+    {
+      "piece": "saturn",
+      "decision": "continue",
+      "rounds": 2,
+      "focus": [
+        "The globe banding reads as vector illustration (board #1): flat posterized fills with wobbly hard edges and 'paint-drip' hooks. It shows in every hero shot: approach t=290-300, skim t=300-308, and the globe behind the eclipse. The root cause is identified: the vortex domain rotation deflects the band-LUT latitude. Leave the LUT lookup unrotated, set a minimum edge width, add fine latitude striations, and compress the band contrast.",
+        "The ring skim is weak (board #2). Over the unlit face there is no Saturnshine, so the lower half of the frame is a void. Over the lit face the near field reads as brushed metal, with no clumping, wakes or density waves. The skim is a section 5 beat (t~300-308). Do Saturnshine first, since it turns a black half-frame into an image, then the near-field straw and wake texture.",
+        "The lit-face C ring is about 4x too dark (board #4): about 20/255 against 94 for the B ring, so it reads as a void with stars showing through instead of a translucent band. It is in every approach frame above the rings (t=290-300). The fix is cheap photometry."
+      ],
+      "redirect_criterion": "Two items should not mask the rest. (a) In 2026 the hexagon sits in polar night, which is physically correct; the critic could not see it even at x4 exposure. Weigh it only if the builder adds twilight visibility or the director features it, and do not let its absence dominate the score. (b) The required ring-skim query (dist=1.9, phase=50, el=-1.2) sits 0.82 R below the ring plane, so it is not a skim. Judge the skim at the film's own camera (about 0.16 R_S off the plane over the B and A rings, t~300-308) and at phase=50&el=23 (lit face, 0.05 R) and el=26 (unlit face, 0.05 R).",
+      "film_window": "284-338 s: 288 card (small disc), 290-300 approach above the rings, 300-308 ring skim and close globe, 308-316 eclipse, 318-322 departure, 326-338 Titan (flyby framing is director-owned).",
+      "why": "Critical, 6.8, and a named hero (rings and eclipse). The eclipse is already close to reference, so effort goes to the globe and ring frames around it, which take up most of Saturn's roughly 50 s. The film's camera does not reach the 0.25 R close-deck artifacts or the moon close-ups. Two rounds."
+    },
+    {
+      "piece": "sky",
+      "decision": "continue",
+      "rounds": 2,
+      "focus": [
+        "The Milky Way's mid-scale texture is grey-brown cotton-wool fog with blobby 'cauliflower' dust and a uniform sprinkle of stars, not grainy star clouds cut by filamentary lanes (board #1, structural). It sits behind the cold open and every starfield frame, about a quarter of the sheet, and is prominent behind the Jupiter departure at t=272. Move more light into resolved points at narrow fov, run anisotropic dust along the iso-tau contours, and make cloud edges crisper.",
+        "The warp legs look sideways (board #4). At t=168, 270 and 360 the apex is off-frame, streaks run to the 360 px cap, the Milky Way smears and half the frame goes black. Sky-side fixes: cap streak length at 4-6% of frame height with a bright head, temper the receding-side exponent (2.6 to about 1.4, floored at 0.25), and keep the Milky Way aberrated but sharp. The apex framing belongs to the director (cross_piece). Each leg lasts several seconds and repeats about 9 times.",
+        "The galactic bulge does not swell (board #3): the Sagittarius ridge is about 7 deg wide, and the galactic centre reads as a dark stripe. Add the analytic boxy bulge behind a reduced foreground screen so the Sagittarius and Scutum clouds become the brightest diffuse light. It matters in any shot with the galactic centre region behind it."
+      ],
+      "redirect_criterion": "The grey band about 15 deg wide in gc.png, wide.png and orion.png is the asteroid belt ring (gc_skyonly.png proves it). Until the asteroids fix lands, judge the sky with only=sky,post plus the body in view, and do not let the band mask the Milky Way work.",
+      "film_window": "Whole film. Dominant in the cold open (0-13 s) and every transition or starfield frame (sheet t=48, 72-80, 104, 144, 208, 232-240, 320, 344-352, 368-376). Warp legs at about 168-178, 270-282, 336-346 and 360-372, plus the director's other legs. Milky Way behind the Jupiter departure at about 270-274.",
+      "why": "Critical, 6.4. Once the director cuts dead time the sky will be on screen less, but it is still the backdrop of every frame, and the cold open is the first image. The catalogue stars are already strong. Two rounds, because the Milky Way texture is structural."
+    },
+    {
+      "piece": "post",
+      "decision": "continue",
+      "rounds": 1,
+      "focus": [
+        "The ghost chain reads as a CG overlay (board #2): up to 9 identical grey heptagons in almost every sun-adjacent shot (critic evidence at t=94, 96, 130, 144, 278, 398, 422). Repeated across the film it becomes a 'flare plugin' signature, and it also muddies Venus's crescent beat. Keep the 3-5 strongest ghosts, put their energy in the rim, give each a coating hue, and scale intensity with the Sun's on-screen flux.",
+        "The warp radial blur aliases thin bright line art into hatching, moire and rainbow fringes (board #1): tap spacing exceeds 1 px once trails pass 256 px. Mip the HDR copy or add a third pass, and fade the R/B split for anything that is not point-like. This hits orbit lines in any finale warp and ring edges in warp departures. Also provide an after-post overlay layer the director can draw orbit lines and labels into (cross_piece).",
+        "The hero-Sun reveal switches visibly from a white disc to an orange filtered disc between t=12 and 14 (board #4), so it reads as a filter sliding in. This is the film's first hero image, at peak viewer attention. Spread the transition over at least 3 s, or open already filtered and let the corona fade up."
+      ],
+      "redirect_criterion": null,
+      "film_window": "Whole film. Sun glare and flare: 10-45, 52-68 (Mercury, Sun just off-frame), 126-146 (Earth sunrise, Moon transfer), 270-274, 390-400, 414-436. Warp: every leg plus the finale. Fades and letterbox: 0-10 and 436-441.5.",
+      "why": "Critical and the highest-scoring critical (7.5), close to target, so one round. The three picks either recur across the film or land at peak attention. Veiling-glare consistency (board #3) goes to the integration VFX pass instead: a lifted veil with the Sun just off-frame at Mercury reads as plausible glare to a viewer, even though a physics critic flags it."
+    },
+    {
+      "piece": "asteroids",
+      "decision": "continue",
+      "rounds": 1,
+      "focus": [
+        "Cross-piece, and first priority. The belt ring draws a uniform grey band about 15 deg wide along the ecliptic, outside the belt. It fogs the body views of the sky, Venus, Mercury, Earth and Saturn (a dust lens in the eclipse frame) and the journey near Mars (t~198), so it masks five other pieces' wave-2 critics. Gate it to within about 0.5 AU of the belt in every mode, view=body included, or turn it into real zodiacal light (falloff with elongation, solar colour, scaled by uSkyGain). Land this as a standalone change first so other critics render clean views.",
+        "From outside or on arrival the swarm renders as a soft-edged, glowing rounded rectangle (board #3), and the unresolved points read as uniform 2-4 px snow (summary). These dominate the chapter's opening frames: a grey slab at sheet t=208 and a snowfield at t=216. Use a noise-modulated ellipsoid density shared by the points and the glow, feather the edges, and size and brighten the points so they read as distant rock.",
+        "Hero and close-pass rocks look like plaster or soap (board #1, structural): pillowy fbm, stamped pocks, no rims, no boulders. These are the chapter's money shots at t=219-224. Build a crater size-frequency hierarchy with rims and degradation states, drive albedo from slope and age, and add cavity AO so front-lit rocks keep their form. Once the director re-aims the glide off the Sun line, these surfaces will be more exposed."
+      ],
+      "redirect_criterion": "The film's lighting direction (a front-lit glide, an empty sunward beat) belongs to the director (cross_piece). If the new glide has not landed, judge rock legibility in body views at phase 70-100 deg as well as in the film frames, so the director's lighting does not mask the surface work.",
+      "film_window": "206-230 s: 206-214 arrival (swarm envelope), 214-222 glide and close whip (219.5), 222 beat hero, 224-228 sunward beat. The belt-ring band appears anywhere it is ungated: the journey at about 190-206 and all body views.",
+      "why": "Minor stake, but it cannot be parked: the band contaminates five other pieces' critic views, so those pieces depend on it. One round, with the band fix first."
+    },
+    {
+      "piece": "audio",
+      "decision": "continue",
+      "rounds": 2,
+      "focus": [
+        "The melody is mostly 2-3-note fragments and never builds a long line (board #1, structural): 31 of 45 events are fragments, and the longest is 6 notes. With nothing to follow over 7.4 minutes it reads as ambient wallpaper, and the viewer hears it for the whole film. Write 3 real 8-16-bar themes that span chords, at the emotional anchors: Earth arrival (~t=112-124), the Saturn eclipse (~308-316) and the finale (~414-441). Add the compose-check: at least 3 phrases of 8 or more notes, each lasting 12 s or more.",
+        "The warp legs are one gesture repeated, hiss over a held chord, and the Jupiter-to-Saturn riser (-10.9 LUFS) is the loudest moment of the film, louder than Earthrise or the finale (board #4). render.mjs already exits 3 on the current cut. Move the harmony through a pivot into each arrival, vary the gesture between legs, and compute riserTrim at compose time from the live cue table, because the director is re-cutting. Cap each leg below the next world's bloom, and keep the top 3 loudness moments for the anchors.",
+        "Register and harmonic rhythm barely change between worlds (board #2). The top voice stays parked around E4 and chords change every 6-9 s everywhere, so the Sun, Earth, Mars, Saturn and finale are spectrally the same (self-similarity at or above 0.9). Set per-world register targets and vary harmonic rhythm on purpose, so each chapter sounds like a new place."
+      ],
+      "redirect_criterion": "Render and judge against the director's latest cut and cue table, not the 441.5 s cut. Leg-calibration failures caused by a stale cut belong to integration, not to the composition.",
+      "film_window": "Whole film, 0-441.5 s. Anchors: Earth arrival ~112-124, Earthrise ~150-162, Saturn eclipse ~308-316, pale blue dot and finale ~414-441. Warp legs at each transition (sheet t~48, 76, 104, 176, 236, 280, 344, 372).",
+      "why": "Major, 6.0, unchanged across all three rounds. The engineering is excellent, but the music does not yet carry emotion, and the goal is an experience the viewer watches once, start to finish, with sound. Two rounds, because the themes are a composition rewrite. It runs alongside the director and must take its timing from the director's cue table."
+    },
+    {
+      "piece": "venus",
+      "decision": "continue",
+      "rounds": 1,
+      "focus": [
+        "The hero crescent and ring of light are dim, grey and incomplete (board #1): a 1-2 px edge with no HDR, so post adds no bloom, and only about 270 deg of ring at 172 deg phase. The section 5 beat is 'a thick-atmosphered crescent with a glowing limb', yet in the film (t~92-97, sheet t=96) it reads as a thin grey outline. Use a two-term HG forward lobe, a higher upper haze and HDR forward-scatter output. The +1 EV for the beat is the director's (cross_piece).",
+        "Away from the disc centre the colour goes grey or cyan instead of cream (board #3): the crescent is 242/239/234 with a bluish fringe, and the ring is a neutral 156. This is the same beat as item 1, and a glowing crescent that stays grey still won't read as Venus. Give the haze a spectral single-scattering albedo, reduce Rayleigh on long slant paths, and tint the twilight source by the deck colour.",
+        "The planetary-scale Y and polar collar do not read without stretching (board #4). The day disc fills the right half of the frame at t~84-90 (sheet t=88) and reads as a flat white wall. Add longitude-stretched coherent streaks, a stronger Y-wave term and a bright collar band, keeping it subtle as the brief asks."
+      ],
+      "redirect_criterion": "If the director's EV bump for the crescent beat has not landed, judge the crescent's HDR radiance in body views at matched exposure as well as in the film at t~92-97, so the film's exposure does not mask the shading fix.",
+      "film_window": "80-98 s: 80 glint, 84-90 day disc (fills the right half of the frame), 92-97 crescent (small in frame).",
+      "why": "Major, 6.5. Unlike the other majors, its section 5 beat (the glowing crescent) is not delivered on screen today. The close-range deck cells (board #2) are not where the film's camera goes, so they are left out. One round, starting now."
+    },
+    {
+      "piece": "mars",
+      "decision": "defer",
+      "rounds": 1,
+      "focus": [
+        "The dark albedo markings are too weak and too orange, and Valles Marineris has no dark floor (board #2). This is in every Mars frame (the disc at t=184-204), and the disc is the whole chapter. Apply an albedo-dependent grade toward slate grey-brown below the median, add a contrast pivot, darken the canyon floors with a MOLA-depth mask, and histogram-check against Viking.",
+        "The polar cap reads as grey plaster, with a stippled noise edge, dark crater interiors and dark dashes near the pole (board #3). The cap is large in the film at t~196-204 (sheet t=200, j_198). Raise frost albedo to 0.6-0.7 with a warm pink tint, use a gentler photometric law for ice, drive the edge from topography with a 1-3 px feather, apply frost after the crater albedo, and evaluate the near-pole features in 3D.",
+        "In the film Phobos is a featureless grey egg or a near-black silhouette against Mars, and Deimos's silhouette is faceted (summary #7). 'Phobos crosses close in front' is a section 5 beat (t~188-196, sheet t=192). Add Mars-shine fill, visible groove and crater texture at its film size, and smooth silhouettes, and fix the tick aliasing on the Phobos crescent (board #4)."
+      ],
+      "redirect_criterion": "The required limb-haze view (dist=1.12, phase=95) does not contain the limb, which is part of why it renders black. Judge limb haze and twilight at a view that includes the limb, and in the film at t~196-204.",
+      "film_window": "180-206 s: 184 card (small disc), 188-196 disc with the Phobos crossing, 196-204 close disc with the north cap.",
+      "why": "Major, 6.2. The film shows Mars only at disc scale, where the critic finds its global colour already matching Viking. The close-range terrain gap (board #1) is not on screen, so effort goes to the disc-scale reads and the Phobos beat. Deferred, first in the queue: launch it when asteroids or post frees a slot. One round."
+    },
+    {
+      "piece": "neptune",
+      "decision": "defer",
+      "rounds": 1,
+      "focus": [
+        "The banding has about half the reference contrast, and the -59 S belt and -71 S collar are invisible (board #3). That affects the whole disc in the full-frame hero approach (t~380-388, sheet t=384), the last planet's portrait. Roughly double the band multipliers, carry more of the pattern in the gas term, and verify a central-meridian p2p of at least 80 DN.",
+        "Bright clouds look like opaque white paint strokes with stair-stepped edges, and the GDS has a lens-like bright rim (board #1). Both are visible in the film's hero approach frame (24_film_t374). Use a continuous opacity profile with a skirt, a blue tint from the gas column, a soft scattering halo, and drop the NE rim.",
+        "Triton's terminator is a straight, hard CG cut (board #5), because the bump term fades out by mu0. Triton with Neptune in twin crescents is the chapter's closing beat (t~400-412, sheet t=408), and at that lighting the terminator is what shows. Let relief show at low sun and add cheap horizon taps. The cantaloupe terrain (board #4) is next if the round has room."
+      ],
+      "redirect_criterion": null,
+      "film_window": "374-414 s: 376 glint, 380-388 hero disc (full frame), 390-400 crescent with the Sun and backlit rings, 400-412 Triton and Neptune twin crescents.",
+      "why": "Major, 6.5. The critic already scores the views the film uses at 7-7.5 (disc 7, crescent 7.5, Triton+Neptune 7.5). The weak view, the framed dark spot at 5.5, is closer than anything the film shows. It is worth a round for its roughly 35 s and the final planet portrait, but after the pieces whose beats fail on screen. Deferred, second in the queue. One round."
+    },
+    {
+      "piece": "mercury",
+      "decision": "defer",
+      "rounds": 1,
+      "focus": [
+        "Procedural crater interiors ignore the DEM terrain shadow (board #1). Crater floors show as lit discs with hard circular edges inside black terrain shadow, and craters that sit entirely in shadow glow at 6-14/255 over a shadow of 0. In the film's hero low pass (t=62-66, critic film_t66) they read as pasted lenses.",
+        "Mid-ground and near-horizon terrain goes soft and smeared during the low pass, with parallel row lines at the skyline and a skyline that is a smooth arc (board #4, critic film_t64). This is the back half of every low-pass frame. Use anisotropic footprint taps and a min-max DEM horizon march with secant refinement.",
+        "Complex and degraded craters read as flat pale decals with stamped T- or bird-shaped central-peak shadows (board #2), in the same low-pass frames. Give the peak a real height profile with a short shadow march, a wide rim fade and terraces."
+      ],
+      "redirect_criterion": null,
+      "film_window": "52-69 s: 52-58 half-lit disc with card (the framing drift at 57-58.6 is director-owned), 60-68 terminator low pass.",
+      "why": "Major, 6.5. The low pass is a strong beat at thumbnail scale (sheet t=64), and all its tells are confined to it. The film never shows the high-sun close views (board #3). Deferred, third in the queue. One round."
+    },
+    {
+      "piece": "hud",
+      "decision": "defer",
+      "rounds": 1,
+      "focus": [
+        "The finale's 'planets as labelled points' beat is thin, and the HUD covers part of it itself (board #1). The THE SOLAR SYSTEM card sits on Neptune and suppresses its label. Mercury, Venus and Mars are never labelled, Earth's label is lost in the glare, and labels last only about 3.5 s. The finale is a named hero moment. Treat label points as hard obstacles for the card, fan the inner planets out on leaders, hold labels through the Earth caption, and retime to the director's new finale.",
+        "The telemetry block sits on the subject (board #2): Titan at t~330, the Mars cap at t~185.75, Saturn's rings at t~300. When a disc covers the block, swap it to another corner or collapse it, and add a scrim with readable keys.",
+        "Title-card facts are readable for under 3 s (board #4). Compress the stagger, guarantee 4.5 s at full opacity, and use the director's longer body beats once they land. Stars showing through glyphs (board #5) is next if there is room."
+      ],
+      "redirect_criterion": null,
+      "film_window": "Whole film. Title cards at each arrival (t~56, 88, 112, 184, 216, 248, 288, 330, 352, 384, 408), telemetry throughout, finale 414-441.5 (labels 424-437).",
+      "why": "Major, 8.0, the highest score on the board. All of its top gaps depend on the director's re-cut (finale length, beat durations, subject placement), so a round now would be spent on a cut that is about to change. Deferred until the director's round 1 lands. One round."
+    },
+    {
+      "piece": "uranus",
+      "decision": "bank_floor",
+      "rounds": 0,
+      "focus": [],
+      "redirect_criterion": null,
+      "film_window": "350-366 s: 352 card (frame nearly empty), 356-364 bullseye at small disc scale.",
+      "why": "Major, 7.0, and it rose every round. The film shows Uranus only as a small bullseye, which the critic calls close to photographic. Every remaining tell is in a view the film's camera never reaches: the NaN pixels on the limb in the rings-close view, the marbling at 0.2 R, the horizon seam, the moon close-ups. Globe tonality is cosmetic. The NaN pixel goes to the integration hygiene check rather than a fix round. The card showing before Uranus is visible (t=352) is director/HUD timing."
+    }
+  ],
+  "cross_piece": [
+    {
+      "gap": "A uniform grey band about 15 deg wide (and a speckled dust lens) along the ecliptic: the belt ring is drawn outside the belt, view=body included. It fogs sky, Venus, Mercury (a glowing ring on the night side in crescent.png), Earth and Moon, and Saturn eclipse views, and the journey near Mars at t~198.",
+      "reported_by": "sky, venus, mercury, earth (which misattributed it to the sky's zodiacal light), saturn, post ('beige ecliptic band')",
+      "owner": "asteroids"
+    },
+    {
+      "gap": "The warp radial blur aliases thin line art: finale orbit ellipses become hatched, moire and rainbow-fringed ribbons.",
+      "reported_by": "post",
+      "owner": "post (mipped HDR or an extra pass for trails over 256 px; an after-post overlay layer), with the director drawing orbit lines and labels into that overlay or not warping while they are on screen"
+    },
+    {
+      "gap": "Warp=1 plateaus look sideways: the apex is off-frame at t=168, 270 and 360, and only t=228 shows radial crowding toward the travel direction.",
+      "reported_by": "sky",
+      "owner": "director (keep the apex within about 25 deg of frame centre during every plateau); sky keeps the streak-length and receding-side fixes"
+    },
+    {
+      "gap": "The belt chapter is front-lit (phase about 15-35 deg), the 'Looking sunward' beat is dark and empty, and the best backlit angle (x_sunward140) never appears in the film.",
+      "reported_by": "asteroids",
+      "owner": "director (aim the glide 70-100 deg from the Sun; hold a 3-4 s sunward beat with the Sun 25-40 deg off-axis)"
+    },
+    {
+      "gap": "The Venus crescent beat is under-exposed (EV.venus is -0.3), so even a fixed forward-scatter limb won't bloom.",
+      "reported_by": "venus",
+      "owner": "director (+~1 EV on the crescent beat)"
+    },
+    {
+      "gap": "Post glare and ghosts make Venus's night disc muddy in the crescent beat; giant hexagonal ghosts and a bright streak at the occluded Sun appear in Uranus's crescent and phase-170 views.",
+      "reported_by": "venus, uranus",
+      "owner": "post (the ghost-chain fix covers it; check the occluded-Sun streak with post flare off, and if it persists it belongs to sun)"
+    },
+    {
+      "gap": "The Earthrise lunar relief needs a 5-15 deg Sun so that long shadows carve it.",
+      "reported_by": "earth",
+      "owner": "director (time and place the Earthrise beat for that sun elevation wherever the real geometry allows)"
+    },
+    {
+      "gap": "Skim cameras are built from ecliptic elevation, so 'ring skim' queries land 0.82 R below the ring plane.",
+      "reported_by": "saturn",
+      "owner": "director and the lead's shot queries (build ring-frame cameras with poleQuaternion('saturn'); use phase=50&el=23 or el=26 for body-view skims)"
+    },
+    {
+      "gap": "Title-card facts are readable for under 3 s because body beats are 6.5-7.5 s and the card exits early; Titan and Mercury leave the frame under their own cards.",
+      "reported_by": "hud, director",
+      "owner": "director (8 s minimum body beats, safe-frame constraint); hud (fact stagger)"
+    },
+    {
+      "gap": "Finale: the Sun's glare swallows the inner orbits and Earth's label, and an ellipse around the finale Sun is scene content.",
+      "reported_by": "director, hud, post",
+      "owner": "director (finale exposure, framing and orbit drawing); hud for label placement"
+    },
+    {
+      "gap": "Module failures during critic runs: sun 'HERO_CONTRAST is not defined' and 'MAX_STEPS_FAR is not defined', both seen during concurrent edits.",
+      "reported_by": "mars, post",
+      "owner": "sun"
+    },
+    {
+      "gap": "'module jupiter failed: missing asset jupiter/turb_z.webp' in the Triton+Neptune run.",
+      "reported_by": "neptune",
+      "owner": "jupiter"
+    },
+    {
+      "gap": "A shader compile error, 'pre' undeclared at line 1088, in a raymarched body that writes gl_FragDepth (journey scan log).",
+      "reported_by": "sky",
+      "owner": "mercury (src/bodies/mercury/shaders.js is the raymarched body; the only other gl_FragDepth writer is saturn/rings.js). 'pre' no longer appears in either file, so it was probably transient; the integration log scan should confirm"
+    },
+    {
+      "gap": "Two green vertical lines in post's limb105.8 view (aim=sun, phase 105.8) are scene content: they persist with postDebug=raw and postIG=0.",
+      "reported_by": "post",
+      "owner": "unassigned: the lead should identify the body module in that view during integration"
+    }
+  ],
+  "integration_priorities": [
+    "Pacing and framing on the re-cut (cinematography). Measure the share of frames with no world larger than 4 px (now about 22%, 15 of 56 sheet frames) and the time spent turning faster than 20 deg/s (now 43.8 s). Check that every title card sits over a visible subject: today the URANUS card at t~352 is over a near-empty frame, Mercury drifts out at 57-58.6 s, and Titan is off-frame at 330-336 s. Check that the finale's map, pale blue dot and credits hold long enough to land (about 4 s each today). Run it at the 2026, 2027 and 2031 epochs.",
+    "Hero moments as a sequence at film exposure, per chapter (VFX), not as isolated body views: the Sun reveal (~10-45 s; white-to-orange switch, prominences, sunspot rows), the Blue Marble and Earthrise (~116-162), the Jupiter disc and skim (~248-268), Saturn's approach, skim and eclipse (~292-316), and the finale (~414-441). Include flare-ghost and veiling-glare consistency across shots (post board #3: an off-frame Sun lifts the blacks more than an in-frame one).",
+    "Film hygiene: a full-film run at each epoch with zero 'module failed' lines, shader errors or missing assets (sun HERO_CONTRAST and MAX_STEPS_FAR, jupiter turb_z.webp, the 'pre' undeclared shader); no grey ecliptic band or dust lens outside the belt chapter; no NaN or black-pixel sparkle (Uranus limb); no warp-aliased line art.",
+    "Warp legs, audio and visual together. The apex stays within about 25 deg of centre, streaks are legible and the trailing half is not black. The legs are varied rather than one repeated gesture. Audio leg loudness stays below the anchors (Earthrise, eclipse, pale blue dot), with the calibration re-derived from the new cut (render.mjs exits 3 on the current one).",
+    "HUD legibility, accuracy and performance on the final cut. Telemetry stays off subjects, facts hold full opacity for at least 4.5 s, finale labels are clear of the card and the glare, and no stars show through glyphs. Captions match BODIES facts and claim nothing the film doesn't show (e.g. the hexagon is in polar night in 2026). Measure full-film frame-time median and p95 at 1600x900 on an unshared GPU, because earlier runs were on a shared one (post 22.8 ms/frame, asteroids p95 20.9 ms, the Earth disc up to 8.4 ms)."
+  ],
+  "rationale": "I weighted gaps by what a viewer watching once sees and for how long, using the lead's film sheet rather than the critics' isolated views. Pacing is the biggest lever: about a quarter of the sheet's frames are empty starfield or bare glints, the finale is rushed, and subjects drift out of frame under their own cards. So the director gets two rounds and starts first, and its cue table becomes the clock that HUD and audio retime against. All seven criticals continue, and none is banked, because each has a gap visible in a hero window. Post gets one round because it is near target. Sun, Earth, Jupiter, Saturn and the sky get two, because their gaps are structural and in the film's hero frames; Jupiter, the lowest critical, takes its cheap high-coverage disc fixes before the skim. Asteroids is minor but cannot be parked: its ungated belt ring fogs five other pieces' critic views, so the band fix lands first. Audio continues because the score runs through the whole film and still reads as wallpaper. Venus takes the tenth concurrent slot because its section 5 beat, the glowing crescent, fails on screen today. Mars, Neptune and Mercury already read well at film distance, so they queue for freed slots in that order. HUD waits for the director's re-cut, and Uranus is banked at 7 because the film shows it only as a small bullseye. I left close-range gaps the camera never reaches (Mars terrain, Venus deck cells, the Uranus and Saturn close decks, Mercury at high sun) out of the focus lists on purpose. No target was lowered: the redirects only keep unclosable or misattributed items from masking real work. The film windows come from the current cut and will move after the re-cut, so critics should find each chapter by its marker."
+}

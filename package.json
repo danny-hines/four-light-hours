@@ -1,0 +1,20 @@
+{
+  "name": "space-animation-v1",
+  "version": "1.0.0",
+  "description": "A cinematic, true-to-scale WebGL journey past every planet of the Solar System.",
+  "scripts": {
+    "serve": "node tools/serve.mjs",
+    "build": "node tools/build.mjs",
+    "shot": "node tools/shot.mjs"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "puppeteer-core": "25.16.0"
+  }
+}

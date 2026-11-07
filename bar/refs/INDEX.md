@@ -1,0 +1,26 @@
+# Reference photographs (critic only, not shipped)
+
+All public domain (NASA/JPL/JSC/GSFC/SDO). Full source URLs and credits are in `assets-src/SOURCES.md`.
+JPEG, long edge ≤ 1600 px.
+
+| File | What it shows, and what a render should match |
+| --- | --- |
+| `sun_sdo.jpg` | SDO AIA 304 Å (2026-11-03). The chromosphere and transition region in false-colour orange-red: mottled network, bright active regions, prominences and spicule fuzz at the limb. Use it to judge a stylised "SDO look", not visible-light colour. |
+| `sun_sdo_aia171.jpg` | SDO AIA 171 Å. Gold false colour, coronal loops arching over active regions, a dim coronal-hole background, and an extended glowing corona beyond the limb. |
+| `sun_sdo_hmi_visible.jpg` | SDO HMI intensitygram (visible continuum). The truest "what the photosphere looks like" reference: strong limb darkening from the bright centre to a dimmer orange-red edge, small dark sunspots, an otherwise featureless disc, and a hard edge with no corona. |
+| `mercury_messenger.jpg` | MESSENGER MDIS globe centred on 0°N 0°E, monochrome. Fully lit mosaic: dense craters, bright young rayed craters, smooth plains, a hard limb with no atmosphere, weak limb darkening. True colour is a slightly brownish neutral gray. |
+| `venus_mariner10_or_akatsuki.jpg` | Mariner 10 (1974, reprocessed 2020), the approximately natural-colour (non-contrast-enhanced) panel. An almost featureless creamy pale-yellow/white cloud deck, very faint swirled banding, a soft bright limb from the thick haze, and no surface visible. |
+| `earth_bluemarble_apollo17.jpg` | Apollo 17 "Blue Marble", fully lit. Africa, Arabia and the Antarctic ice cap; vivid white cloud swirls; deep blue ocean; a thin bright-blue atmospheric rim; true colour with ochre deserts. The benchmark for Earth's day side. |
+| `earth_iss_limb_night.jpg` | ISS night pass at orbital sunset over Europe–Asia. Orange-yellow city-light clusters on a black surface, a thin layered limb (green airglow band over an orange/red sunset layer), and stars visible above. Shows how thin the atmosphere is relative to the curvature. |
+| `moon_full.jpg` | Full Moon from the ISS (nearside, roughly the Earth view). Gray-beige highlands, dark maria (Imbrium, Serenitatis, Tranquillitatis…), Tycho's rays at the bottom, and almost no limb darkening: a flat disc at full phase (opposition surge). |
+| `moon_full_apollo17.jpg` | Full disc from Apollo 17 on its way home, showing the eastern nearside maria (Crisium, Fecunditatis, Nectaris, Tranquillitatis) and far-side highlands. Neutral gray colour, crisp limb, no atmosphere. |
+| `mars_viking_or_rosetta_osiris_truecolor.jpg` | Viking colour mosaic of the Valles Marineris hemisphere. Butterscotch/rust-orange surface, darker albedo markings, the canyon system cutting across the centre, a bright north polar cap, and faint haze at the limb. |
+| `jupiter_juno_or_cassini.jpg` | Cassini true-colour portrait (Dec. 2000). Cream zones and tan/brown belts, the Great Red Spot (salmon, with a white collar), festoons and white ovals, gentle limb darkening, and soft gray-blue polar haze. |
+| `jupiter_io_shadow_hubble.jpg` | Hubble (Jan. 2015) triple-moon conjunction. Black, sharp-edged round shadows of Europa and Callisto on the cloud tops, with Io and Europa as small bright discs. Use it to check moon-shadow size, darkness and penumbra softness on Jupiter. |
+| `saturn_cassini_equinox.jpg` | Cassini mosaic at the Aug. 2009 equinox. The Sun is edge-on to the rings, so the rings are very dim. Saturn's shadow stretches far across them, and the rings' own shadow on the globe shrinks to a thin equatorial line. Pale butterscotch, softly banded globe. |
+| `saturn_cassini_backlit.jpg` | "In Saturn's Shadow" (2006). The Sun is behind the planet: Saturn is a dark disc with a glowing refracted-light limb, the rings are brilliantly forward-scattering (faint E and G rings visible), and Earth is a tiny dot. The test for backlit ring scattering. |
+| `uranus_voyager2.jpg` | Voyager 2 (1986) true colour. A pale cyan-blue, nearly featureless disc with soft limb darkening and a slightly brighter polar hood. |
+| `neptune_voyager2.jpg` | Voyager 2 (1989), green and orange filters. Deep azure-blue disc, the Great Dark Spot with its bright white companion clouds, the "Scooter", and faint banding. The blue is somewhat enhanced compared with modern true-colour reprocessing, so aim slightly less saturated. |
+| `milkyway_eso_or_nasa.jpg` | JPL ground photo, Goldstone DSS-15 under the Milky Way (2025). Band structure, dark dust lanes, warm core colour and star density for a skybox. It's taken through the atmosphere (airglow, horizon glow), so the space background should be darker and more neutral. Not a full-sky panorama. NASA SVS "Deep Star Maps 2020" (https://svs.gsfc.nasa.gov/4851) is a full-sky equirectangular option but includes ESA Gaia DR2 data (not purely PD), so it wasn't downloaded. |
+| `pale_blue_dot_revisited.jpg` | Voyager 1 "Pale Blue Dot" (2020 reprocessing), full frame. Scattered-light sunbeams across a dark field; Earth is below one pixel at this size. Use it for mood and scale. |
+| `pale_blue_dot_revisited_crop.jpg` | Native-resolution crop around Earth. A single pale-blue point of about 1 px inside a faint diagonal sunbeam. This is what Earth should look like from about 6 billion km. |

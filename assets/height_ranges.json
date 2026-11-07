@@ -1,0 +1,23 @@
+{
+  "moon": {
+    "min_km": -8.8134,
+    "max_km": 10.6398,
+    "reference": "LOLA, km relative to 1737.4 km sphere",
+    "encoding": "height_km = min_km + (v/255) * (max_km - min_km)",
+    "note": ""
+  },
+  "mars": {
+    "min_km": -8.2469,
+    "max_km": 21.1491,
+    "reference": "MOLA MEGDR median topography, km relative to the GMM3 areoid",
+    "encoding": "height_km = min_km + (v/255) * (max_km - min_km)",
+    "note": ""
+  },
+  "mercury": {
+    "min_km": -10.725,
+    "max_km": 9.0735,
+    "reference": "USGS MESSENGER DEM v2, km relative to 2439.4 km sphere",
+    "encoding": "height_km = min_km + (v/255) * (max_km - min_km)",
+    "note": ""
+  }
+}

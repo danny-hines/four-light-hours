@@ -1,0 +1,33 @@
+{
+  "albedo": {
+    "file": "albedo.webp",
+    "encoding": "rel = lo + v/255*(hi-lo); relative normal albedo, median 1",
+    "lo": 0.4,
+    "hi": 2.6
+  },
+  "tint": {
+    "file": "tint.webp",
+    "encoding": "sRGB: linear rgb = 2*texel, luminance-normalised natural-colour tint"
+  },
+  "density": {
+    "file": "density.webp",
+    "encoding": "linear gray: procedural crater-density factor 0.3..1"
+  },
+  "dem": {
+    "file": "dem.webp",
+    "encoding": "cubic B-spline coefficients: height_km = min_km + v/255*(max_km-min_km), sphere 2439.4 km",
+    "min_km": -11.5839,
+    "max_km": 13.7753,
+    "size": [
+      1664,
+      832
+    ]
+  },
+  "detail": {
+    "file": "detail.webp",
+    "encoding": "log(albedo ratio) = (v/255 - 0.5) * 2 * range",
+    "range": 0.45,
+    "tile_km": 681.0,
+    "source": "MD3 mosaic 665 m/px, 1024 px centred 50 W 0 N, periodic + high-pass"
+  }
+}
