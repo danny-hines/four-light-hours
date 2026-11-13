@@ -3,6 +3,34 @@
 Owner files: `src/bodies/venus.js`, `src/bodies/venus/{common,deck,haze,bake,noise-grad}.js`. No assets on disk
 (fully procedural; the planetary fields are baked on the CPU at load, ~0.2 s). No external data downloaded.
 
+## Wave 3 (film pass: day-disc structure, the crescent)
+Before / after film frames: `shots/venus/before_after.png` (left HEAD, right now; t = 76, 80, 84, 88, 90), final frames
+`shots/venus/final/film_t*.png`, baseline `shots/venus/base/`.
+- **Day disc was a flat putty wall** (t 76-82). (a) `bake.js`: the coarse streak fields gained **spiral wave trains**
+  `cos(m lon + s g(|lat|) + phase)` with integer zonal wavenumbers (3, 5, 8, 13; seamless), phases bent and amplitudes
+  broken by low-frequency noise, blended in poleward of ~15 deg: streaks now trail poleward-westward at 15-30 deg to the
+  latitude circles in both hemispheres (the Mariner 10 chevron). Noise stretched along latitude circles cannot tilt.
+  (b) `deck.js`: domain warp of the fine octaves x0.3 (`uWarpK`, `vwarp=`): the marbled "fingerprint" swirls that
+  appeared as soon as contrast was raised are gone; fine streaks fade toward the limb and the brightening of
+  absorber-poor cloud saturates at +16 % (no white scratches at the limb). (c) `venus.js` defaults: `uContrast` 0.5 ->
+  1.0, `uStreak` 2.6 -> 4.2, `uFine` 1.0 -> 0.8, `uAlbGain` 1.23 -> 1.3 (brighter cream; the Mallama calibration of
+  wave 2 is knowingly exceeded by ~6 %).
+- **Crescent was a thin grey outline** (t 84-90). `haze.js`: the forward lobe (direct beam, forward-diffused beam and
+  twilight terms) gets a gain `1 + 5 fw` and a warm tint (1, 0.84, 0.58) with `fw = smoothstep(0.45, 0.97, cos
+  scattering angle)` - back-lit views only, every day-side view is unchanged (`uFwd`, `vfwd=r,g,b,gain`). Twilight
+  source 1.2 -> 2.5 with e-fold 0.2 -> 0.3 rad (the ring closes round the night limb), high haze tau 0.18 -> 0.24,
+  H 13 -> 14 km. The crescent limb is now HDR (bloom spreads it into a glowing atmosphere) and warm cream-gold.
+- Cost: unchanged within noise (same alternating measurement as Earth, ms per frame at 3200x1800: t=78 38.6 / 45.1 vs
+  HEAD 42.0 / 33.5; t=88 25.7 / 24.8 vs 27.0 / 22.5). No new loops or noise call sites. **FXC compile time not
+  re-measured** (macOS session): re-run `tools/checks/shader_cost.mjs --q "only=venus,post"` on Windows; the deck
+  shader is known to be touchy there (see the `pow` note below).
+- Requests (wave 3): **Post** - at the crescent beat the image-based lens ghost of the bright crescent lands inside
+  the night disc as a faint inner arc (absent with `postDebug=raw`), and the glare veil still greys the night side.
+  **Director** - the day beat at t~80 frames less than half the disc; the chevron reads best with the whole disc in
+  frame (as at t=77-78).
+- Remaining gaps: the Y is a tan belt with streaks rather than an unmistakable sideways Y; the forward-scatter gain
+  makes far-field photometry at extreme phase even brighter than the phase curve (see wave-2 gap).
+
 ## What exists (after wave 2)
 
 **Structure (true scale).** Solid radius 6051.8 km (reported `radius`). Visible cloud deck (opaque mesh, shaded on

@@ -29,20 +29,35 @@ const WB = QS.get('sunwb'); // dev: test disc-centre white balances
 // photosphere.glsl.js), with their chroma exaggerated like a contrasty photograph (CHROMA).
 const DISC_CENTRE = WB ? new THREE.Color(...WB.split(',').map(Number)) : new THREE.Color(1.0, 0.7, 0.36);
 const CHROMA = QS.has('sunchroma') ? Number(QS.get('sunchroma')) : 1.6;
-// Display contrast of the photosphere in hero shots (exponent on its luminance relative to disc centre). The
-// physical limb darkening (0.47 at r = 0.97, 550 nm) is right, but the HDR tone curve compresses it to ~0.65 on
-// screen, where solar-filter photographs and the HMI intensitygram show ~0.35: a contrasty white-light rendering
-// steepens every luminance contrast of the photosphere alike (limb darkening, granulation, faculae, spots).
-// The far-field point and planet lighting keep the physical radiance. dev: ?sunhk=x
-const HERO_CONTRAST = QS.has('sunhk') ? Number(QS.get('sunhk')) : 1.9;
-// The granulation-scale fluctuations get a gentler display contrast: through the hero tone curve (red channel in the
-// shoulder) every luminance swing also becomes a hue swing, so the full 1.9 read as lemon granules on orange lanes.
-const HERO_CONTRAST_SMALL = QS.has('sunhks') ? Number(QS.get('sunhks')) : 1.15;
+// HERO LOOK. In shots exposed for the Sun itself, post composites the disc at its own exposure behind an orange
+// "solar filter" with a log contrast and a per-channel tone curve (post.js HERO; constants mirrored in POST_HERO).
+// Left alone that renders the HMI-intensitygram look: an evenly orange disc. The film wants a star: so the
+// photosphere is authored display-referred. The colour that should reach the tone curve is a per-channel power
+// ramp of the luminance signal L (1 = quiet disc centre): D_c(L) = LOOK_A[c] * L^LOOK_P[c]
+//   L 1.0  (centre)        -> (8, 1.7, .40)   white-gold   sRGB ~(255, 240, 183)
+//   L 0.83 (r = 0.7)       -> (4.8, .79, .13) gold              ~(255, 215, 115)
+//   L 0.66 (r = 0.9)       -> (2.5, .31, .035) orange           ~(247, 170, 45)
+//   L 0.47 (limb)          -> (1.0, .08, .005) deep orange-red  ~(225, 90, 2)
+//   L 0.15 (umbra)         -> (.04, 0, 0)     near black
+// and sun.js inverts post's chain (filter, exposure, log contrast about the pivot) to get the scene radiance.
+// The far-field point, planet lighting and planet-exposed views keep the physical radiance. dev: ?sunlook=Ar,Ag,Ab,Pr,Pg,Pb
+const POST_HERO = { discRGB: [4059, 2841, 1461], filter: [1.0, 0.22, 0.022], target: 2.4, gamma: 1.4 };
+const LOOK = QS.has('sunlook') ? QS.get('sunlook').split(',').map(Number) : [8, 1.6, 0.3, 2.75, 4.0, 5.6];
+// granulation-scale fluctuations ride the same ramp with this exponent on their luminance ratio. dev: ?sunhks=x
+const HERO_SMALL = QS.has('sunhks') ? Number(QS.get('sunhks')) : 0.8;
+// close views (the skim): the disc is exposed down the ramp, so the plain is a rich gold and only the granule
+// centres and faculae reach white-gold. dev: ?sunhx=x
+const HERO_CLOSE_EXP = QS.has('sunhx') ? Number(QS.get('sunhx').split(',')[0]) : 0.76;
+const HERO_CLOSE_K = QS.has('sunhx') ? Number(QS.get('sunhx').split(',')[1] ?? 0.65) : 0.65;
 const REF_DAYS = daysSinceJ2000(new Date('2026-11-02T12:00:00Z')); // rotation-phase reference (see features.js)
 const SHELL_R = 22; // corona shell radius (solar radii)
 const CHROMO_R = 1.0185; // chromosphere shell radius (solar radii; must match RC in corona.glsl.js)
-const CORONA_EXPOSURE = 0.002;
-const SKY_LIFT = QS.has('sunsky') ? Number(QS.get('sunsky')) : 0.4; // dev: ?sunsky=x // exposure above which the corona gain is reduced (see update)
+const CORONA_EXPOSURE = 0.002; // exposure of the wide (corona) shots; below it the corona's gain follows the exposure (see update)
+const CORV = QS.has('suncor') ? QS.get('suncor').split(',').map(Number) : [];
+const CRAY = QS.has('sunray') ? QS.get('sunray').split(',').map(Number) : []; // dev: ray-texture amplitudes
+const CORONA_DISC = CORV[0] ?? 0.8; // corona level in disc-exposed shots, relative to the wide (corona-exposed) shots
+const CORONA_CLOSE = CORV[1] ?? 0.45; // corona gain in the close views (the skim)
+const SKY_LIFT = QS.has('sunsky') ? Number(QS.get('sunsky')) : 0.4; // height-graded sky of the close views (skim). dev: ?sunsky=x
 const WILSON_DEPTH = 600 / 695700; // umbral depression, in solar radii
 // dev only: ?sundebug=<n> switches the photosphere to a diagnostic output
 const DEFS = QS.get('sundefs'); // dev: shader experiments
@@ -57,8 +72,8 @@ const PROM_ONLY = QS.has('sunprom') ? QS.get('sunprom').split(',').map(Number) :
 // The optically thin lines are soft-clipped at PROM_THIN_SAT x the thick level (pale-pink cores, never white).
 // Opacity per unit column. dev: ?sunpe=disp,thinSat,kappa,kappaHedge,thinHedge
 const PE = QS.has('sunpe') ? QS.get('sunpe').split(',').map(Number) : [];
-const PROM_DISP = PE[0] ?? 0.65;
-const PROM_THIN_SAT = PE[1] ?? 0.28;
+const PROM_DISP = PE[0] ?? 0.38;
+const PROM_THIN_SAT = PE[1] ?? 0.14;
 const PROM_KAPPA = PE[2] ?? 0.35;
 const PROM_KAPPA_HEDGE = PE[3] ?? 0.3;
 const PROM_THIN_HEDGE = PE[4] ?? 0.6;
@@ -97,6 +112,7 @@ function discCentreColor(centre) {
 
 export async function create(ctx) {
   const { U, data, epochDays } = ctx;
+  const heroA = new THREE.Vector3(), heroP = new THREE.Vector3();
   const R = data.radius;
   const object = new THREE.Group();
   object.name = 'sun';
@@ -105,6 +121,16 @@ export async function create(ctx) {
   object.add(rotor);
 
   // (Sunlight on the planets uses U.uSunColor; the disc itself is only ever seen through a solar-grade exposure.)
+  // hero look -> scene radiance per channel: out_c = pivot_c (D_c / pivot_c)^(1/gamma) / (filter_c k)
+  {
+    const H = POST_HERO, k = H.target / (H.discRGB[0] * H.filter[0]);
+    const A = [0, 1, 2].map((c) => {
+      const pivot = (H.target * H.discRGB[c] * H.filter[c]) / (H.discRGB[0] * H.filter[0]);
+      return (pivot * Math.pow(LOOK[c] / pivot, 1 / H.gamma)) / (H.filter[c] * k);
+    });
+    heroA.set(A[0], A[1], A[2]);
+    heroP.set(LOOK[3] / H.gamma, LOOK[4] / H.gamma, LOOK[5] / H.gamma);
+  }
   const { color: discColor, meanRatio } = discCentreColor(DISC_CENTRE);
 
   // shared uniforms (objects shared between materials, mutated each frame)
@@ -118,8 +144,11 @@ export async function create(ctx) {
     uDiscFade: { value: 1 },
     uFade: { value: 1 },
     uDebug: { value: DEBUG },
-    uHeroK: { value: 1 }, // display contrast of the photosphere in hero shots (see HERO_CONTRAST)
-    uHeroKs: { value: 1 }, // ... of its granulation-scale fluctuations (HERO_CONTRAST_SMALL)
+    uHeroW: { value: 0 }, // hero weight (the shot is exposed for the Sun)
+    uHeroA: { value: new THREE.Vector3(1, 1, 1) }, // hero look, inverted through post's chain (see HERO LOOK)
+    uHeroP: { value: new THREE.Vector3(1, 1, 1) },
+    uHeroX: { value: new THREE.Vector2(1, 1) },
+    uHeroS: { value: new THREE.Vector4(1, HERO_SMALL, 1, 1.3) }, // signal exposure, small-scale exponent, plage, ceiling
     uNoise3: { value: sunNoiseTexture() }, // shared band-limited noise volume (noisetex.js)
   };
 
@@ -211,6 +240,10 @@ export async function create(ctx) {
     uNStrU: { value: 10 },
     uSpicN: { value: 20 },
     uKCol: { value: new THREE.Color(1.0, 0.98, 0.95) },
+    uKColIn: { value: new THREE.Color(1.0, 0.9, 0.74) },
+    uRay: { value: new THREE.Vector4(CRAY[0] ?? 0.45, CRAY[1] ?? 0.75, CRAY[2] ?? 0.95, CRAY[3] ?? 0.15) },
+    uPostG: { value: 1 },
+    uCorK: { value: new THREE.Vector4(CORV[2] ?? 0.5, CORV[3] ?? 1.3, CORV[4] ?? 0.35, CORV[5] ?? -1.5) },
     uSkyLift: { value: 0 },
     uCubeLod0: { value: Math.log2((ctx.quality === 'low' ? 256 : 512) / (Math.PI / 2)) },
     uInside: { value: 0 },
@@ -289,10 +322,10 @@ export async function create(ctx) {
           Lk: P.L * (nest ? 0.45 + 0.55 * rnd() : 0.8 + 0.2 * rnd()),
           Hk: P.H * (nest ? 0.45 + 0.55 * rnd() : er ? 0.75 + 0.25 * rnd() : 0.78 + 0.22 * rnd()),
           tilt: (rnd() - 0.5) * (er ? 0.4 : 0.3),
-          zoff: (rnd() - 0.5) * P.W * 0.7,
-          width: P.W * (nest ? 0.14 + 0.1 * rnd() : er ? 0.26 + 0.16 * rnd() : 0.24 + 0.14 * rnd()),
+          zoff: (rnd() - 0.5) * P.W * 1.1,
+          width: P.W * (nest ? 0.12 + 0.1 * rnd() : er ? 0.18 + 0.2 * rnd() : 0.17 + 0.2 * rnd()),
           // lognormal brightness per strand (sigma ~0.8, mean ~1): a few dominate, most are faint
-          dens: Math.min(3.5, Math.max(0.12, Math.exp(0.8 * gauss(rnd) - 0.25))),
+          dens: Math.min(4.5, Math.max(0.08, Math.exp(1.05 * gauss(rnd) - 0.3))),
           phase: rnd() * 6.283,
           skew: (rnd() - 0.5) * 0.3 + (P.lean ?? 0),
           twist: (rnd() - 0.5) * (er ? 8 : 5),
@@ -324,7 +357,7 @@ export async function create(ctx) {
           yMax = Math.max(yMax, Yp);
         }
         // (the diffuse envelope reaches sqrt(5) x 2.6 x the widest rope radius, 1.4 x width)
-        const pad = 8.2 * s.width + 0.2;
+        const pad = 10.2 * s.width + 0.2;
         const yc = 0.5 * (yMin + yMax);
         let rad = 0;
         for (const [Xp, Yp, za] of pts) {
@@ -374,7 +407,7 @@ export async function create(ctx) {
         uOrigin: { value: origin },
         uBoxMin: { value: bmin },
         uBoxMax: { value: bmax },
-        uArch: { value: new THREE.Vector4(0.75, 0.5, 0.045, type === 2 ? 0.7 : 0.45) },
+        uArch: { value: new THREE.Vector4(0.8, 0.42, 0.11, type === 2 ? 0.7 : 0.45) },
         uCurtain: { value: curtain },
         uCurtainS: { value: curtainS },
         uSeed: { value: P.seed },
@@ -517,16 +550,31 @@ export async function create(ctx) {
     const sg = shot.grade || {};
     const over = Math.log2(Math.max(1e-30, DISC_RADIANCE * ex * 2 ** (sg.ev ?? 0)));
     const heroW = sg.hero ?? 1 - THREE.MathUtils.smoothstep(over, 3.5, 7.5);
-    S.uHeroK.value = 1 + (HERO_CONTRAST - 1) * heroW;
-    S.uHeroKs.value = 1 + (HERO_CONTRAST_SMALL - 1) * heroW;
+    S.uHeroW.value = heroW;
+    S.uHeroA.value.copy(heroA);
+    S.uHeroP.value.copy(heroP);
+    // close views are exposed down the ramp (see HERO_CLOSE_EXP)
+    // ... with a gentler large-scale contrast, so the plain glows orange-red all the way to the horizon
+    const closeH = 1 - THREE.MathUtils.smoothstep(d / R, 1.15, 2.4);
+    S.uHeroX.value.set(THREE.MathUtils.lerp(1, HERO_CLOSE_EXP, closeH), THREE.MathUtils.lerp(1, HERO_CLOSE_K, closeH));
     // Close hero views (inside ~1.5 R) exposed for the disc: the sky above the horizon of the skim is graded by
     // height (uSkyLift, below), as in a coronagraph composite, so it glows pearl at the limb instead of going black.
     const closeF = 1 - THREE.MathUtils.smoothstep(d / R, 1.2, 1.5);
     const lift = THREE.MathUtils.clamp(Math.pow(CORONA_EXPOSURE / ex, 0.2), 1, 3);
-    // Exposed for the disc itself (ex << CORONA_EXPOSURE) the corona drops to a faint halo, as in a real photograph
-    // (except in the close views, see uSkyLift).
-    const halo = THREE.MathUtils.lerp(0.35 + 0.65 * THREE.MathUtils.smoothstep(ex, 0.0002, 0.0015), 0.45, heroW * closeF);
-    const autoGain = Math.min(1, Math.pow(CORONA_EXPOSURE / ex, 1.15)) * halo;
+    // The corona is display-graded like an eclipse composite: below CORONA_EXPOSURE its gain follows the exposure, so
+    // it keeps a constant on-screen brightness whether the shot is exposed for the corona (wide) or for the disc
+    // (full disc, departure); CORONA_DISC of the wide level when exposed for the disc. Close views (the skim) keep
+    // the fainter height-graded sky (uSkyLift). dev: ?suncor=discLevel,closeLevel
+    // (dimmer when the inner corona fills the frame, between the full-disc view and the skim)
+    const discLevel = THREE.MathUtils.lerp(CORONA_DISC, 1, THREE.MathUtils.smoothstep(ex, 0.0005, 0.0018)) * THREE.MathUtils.lerp(0.55, 1, THREE.MathUtils.smoothstep(d / R, 1.5, 3.5));
+    const dispGain = ex < CORONA_EXPOSURE ? (CORONA_EXPOSURE / ex) * discLevel : Math.pow(CORONA_EXPOSURE / ex, 1.15);
+    const autoGain = THREE.MathUtils.lerp(dispGain, CORONA_CLOSE, heroW * closeF);
+    // post's radially graded hero gain (post.js: gain = g_disc rho^1.5 capped at 1 when the disc must be darkened)
+    {
+      const H = POST_HERO;
+      const lnC = THREE.MathUtils.clamp(Math.log2(H.target / (H.discRGB[0] * H.filter[0] * ex * 2 ** (sg.ev ?? 0))), -10, 2.5);
+      coronaUniforms.uPostG.value = lnC < 0 ? Math.pow(2, heroW * lnC) : 1;
+    }
     // ... and the close views grade the sky above the horizon by height (bright pearl at the limb, see the shader)
     const skyW = heroW * closeF;
     coronaMat.uniforms.uSkyLift.value = SKY_LIFT * skyW * Math.min(1, (lift - 1) / 0.6);
@@ -541,7 +589,7 @@ export async function create(ctx) {
     const resolved = 1 - THREE.MathUtils.smoothstep(fpMmLimb, 0.5, 2.2);
     const chromoGain = Math.max(Math.min(1, Math.pow(CORONA_EXPOSURE / ex, 1.15)), 0.3 + 0.5 * resolved);
     // (the shader's band + spicule forest is calibrated for resolved close-ups; unresolved it is a thin rim)
-    chromoMat.uniforms.uChromo.value = api.debugMask & 16 ? 0 : chromoGain * (0.4 + 0.6 * resolved);
+    chromoMat.uniforms.uChromo.value = api.debugMask & 16 ? 0 : chromoGain * (0.14 + 0.86 * resolved);
     // outside the shell draw its front faces (the pass then also covers the photosphere's extreme limb)
     chromoMat.uniforms.uInside.value = d > CHROMO_R * R * 1.0005 ? 0 : 1;
     const mask = api.debugMask;
@@ -553,7 +601,7 @@ export async function create(ctx) {
     const promGain = shot.sunProminence ?? 1;
     // display grading of the H-alpha source function (see PROM_DISP): constant on-screen level at Sun exposures
     // (a little brighter in the wide views, where they are small flames on the limb of an eclipse-graded corona)
-    const promEmit = Math.min(PROM_EMIT, (PROM_DISP * (1 + 1.6 * THREE.MathUtils.smoothstep(d / R, 3, 10))) / (DISC_RADIANCE * ex));
+    const promEmit = Math.min(PROM_EMIT, (PROM_DISP * (1 + 0.8 * THREE.MathUtils.smoothstep(d / R, 3, 10))) / (DISC_RADIANCE * ex));
     for (const p of proms) {
       tmp.copy(camLocal).sub(p.origin).applyMatrix3(p.basisT);
       const inside = tmp.x > p.bmin.x - 1 && tmp.x < p.bmax.x + 1 && tmp.y > p.bmin.y - 1 && tmp.y < p.bmax.y + 1 && tmp.z > p.bmin.z - 1 && tmp.z < p.bmax.z + 1;

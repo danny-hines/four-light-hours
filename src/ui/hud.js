@@ -9,7 +9,8 @@
 //   motion=0     behave as if prefers-reduced-motion were set
 //   card=0       body-view: hide the inspection title card
 //   fonts=0      skip the embedded web fonts (preview the system fallback stacks)
-//   meter=0      legibility from the analytic brightness estimate only (no frame readback)
+//   meter=0|1    0: legibility from the analytic brightness estimate only (the default during playback); 1: read the
+//                frame back during playback too (capture stills always do, unless meter=0)
 import { loadFonts } from './fonts.js';
 import { css } from './style.js';
 import { ICONS } from './icons.js';
@@ -549,12 +550,14 @@ export async function create(ctx) {
       `<p class="s">${esc(F.typo(`The planets were drawn at their true sizes and distances, where they really were on ${F.fmtDateLong(epochDate)}.`))} ` +
       `${esc(lightLine(director ? director.duration : 0))}</p>` +
       `<div class="flh-credits">${CREDITS.map(([k, v]) => `<div class="flh-credit"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>` +
-      `<button class="flh-replay off" type="button" tabindex="-1">Watch again</button>`;
-    endParts = { t: el.end.querySelector('.t'), r: el.end.querySelector('.r'), s: el.end.querySelector('.s'), credits: [...el.end.querySelectorAll('.flh-credit')], replay: el.end.querySelector('.flh-replay') };
-    endParts.replay.addEventListener('click', () => {
+      `<div class="flh-end-actions off"><button class="flh-replay explore" type="button" tabindex="-1">Explore the worlds</button>` +
+      `<button class="flh-replay again" type="button" tabindex="-1">Watch again</button></div>`;
+    endParts = { t: el.end.querySelector('.t'), r: el.end.querySelector('.r'), s: el.end.querySelector('.s'), credits: [...el.end.querySelectorAll('.flh-credit')], replay: el.end.querySelector('.flh-end-actions'), buttons: [...el.end.querySelectorAll('.flh-replay')] };
+    el.end.querySelector('.flh-replay.again').addEventListener('click', () => {
       app.seek(0);
       app.play();
     });
+    el.end.querySelector('.flh-replay.explore').addEventListener('click', () => app.enterExplore && app.enterExplore('earth'));
   }
   // How far sunlight that left the Sun as the film began has got by its end — computed from the real distances.
   function lightLine(duration) {
@@ -823,7 +826,13 @@ export async function create(ctx) {
 
   // ---------------------------------------------------------------- labels
   const labels = createLabels(THREE, el.labels);
-  const meter = createMeter(params.get('meter') === '0' ? null : ctx.renderer, capture); // meter=0: analytic estimate only
+  // The light meter reads the finished frame back. In capture stills that is exact and free; during playback even
+  // the asynchronous path (pixel-pack buffer + fence) costs a round trip to the GPU process, which stalls the main
+  // thread for a whole frame or more whenever the GPU is the bottleneck (measured: up to 80 ms per readback in
+  // Mercury's low pass on an Apple M5 Pro, one hitch every ~9 frames). So playback uses the analytic estimate
+  // unless meter=1 asks for the readback; meter=0 turns it off everywhere.
+  const meterOn = params.get('meter') === '1' || (capture && params.get('meter') !== '0');
+  const meter = createMeter(meterOn ? ctx.renderer : null, capture);
   let userLabels = params.get('labels') === '1';
   let hudOn = true;
   // The director dims a label it thinks is crowded (near another point, near its planet's limb, near the frame
@@ -1492,7 +1501,7 @@ export async function create(ctx) {
         // the button's space is always reserved, so the card does not jump when the film ends
         if (endParts.replay.classList.contains('off') === ended) {
           endParts.replay.classList.toggle('off', !ended);
-          endParts.replay.tabIndex = ended ? 0 : -1;
+          for (const b of endParts.buttons) b.tabIndex = ended ? 0 : -1;
         }
       } else show(el.end, false);
 

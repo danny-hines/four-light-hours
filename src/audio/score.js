@@ -17,8 +17,16 @@
 //   seek(t)      a fresh "generation" of buses starts at t, resuming every sustained note mid-envelope, and
 //                crossfades with the old one (0.5 s); rapid scrubbing is coalesced
 //   setMuted(b)  25 ms-scale ramp on the output, processing continues so unmute is instant
+//   setExplore(id | null)
+//                explore mode (the film's clock is frozen while the viewer orbits a world): crossfades (~2 s) from
+//                whatever plays to an endless, slowly evolving bed in that world's own harmony, register and colour
+//                (explore.js), another id crossfades between beds (~1.5 s), null fades the bed out and hands back to
+//                the film (the next update() resumes it at the current t). The bed sounds whether or not the film
+//                is `playing`; only mute silences it. Safe before start() (applied once started), a no-op when
+//                called again with the same id.
 import { compose, fallbackTimeline, TAIL } from './composer.js';
 import { Engine } from './engine.js';
+import { ExploreBed, EXPLORE } from './explore.js';
 import { JOURNEY_ORDER } from '../core/bodies-data.js';
 
 const CUE_HZ = 10; // director.evaluate() samples per second for the cue track
@@ -118,6 +126,39 @@ export async function create(ctx) {
     prevUpd = null,
     lastSched = -1;
   const perf = { frames: 0, total: 0, max: 0, regenMax: 0, resyncs: 0 }; // main-thread cost of update()
+  let exploreWant = null, // the world asked for with setExplore (null: the film)
+    exploring = false,
+    bed = null;
+
+  // Enter / switch / leave explore mode (needs the engine: setExplore before start() is applied by start()).
+  function applyExplore() {
+    if (!engine) return;
+    const now = ac.currentTime;
+    const when = now + 0.03;
+    if (exploreWant !== null) {
+      if (ac.state !== 'running' && ac.resume) ac.resume().catch(() => {});
+      engine.setTransport(true, now);
+      if (!exploring) {
+        // leave the film: its generations fade out as the bed fades in (the film is not "active" while exploring)
+        for (const g of engine.gens) engine.retire(g, when, EXPLORE.enter);
+        gen = null;
+        active = false;
+        ending = false;
+        pendingSeek = null;
+        exploring = true;
+        bed.enter(exploreWant, when, EXPLORE.enter);
+      } else bed.enter(exploreWant, when, EXPLORE.swap);
+    } else if (exploring) {
+      bed.leave(when, EXPLORE.enter);
+      exploring = false;
+      // back to the film: the next update() starts a generation at the current t if the film is playing; if it
+      // is paused the bed rings out and the context suspends as after any pause
+      pauseAt = now;
+      prevUpd = null;
+      rateEma = 1;
+      lastSched = -1;
+    }
+  }
 
   const latency = () => (ac ? ac.outputLatency || ac.baseLatency || 0 : 0);
 
@@ -159,7 +200,9 @@ export async function create(ctx) {
         await e.init();
         e.setMuted(muted);
         engine = e;
+        bed = new ExploreBed(engine);
         engine.prewarm();
+        if (exploreWant !== null) applyExplore();
       } catch (err) {
         console.warn('[audio] unavailable:', err && err.message);
         engine = null;
@@ -172,6 +215,19 @@ export async function create(ctx) {
       const u0 = performance.now();
       const now = ac.currentTime;
       const hidden = typeof document !== 'undefined' && document.hidden;
+      if (exploring) {
+        // explore mode: the film's clock is frozen and none of its cues may fire; the bed runs on the audio clock
+        if (now - lastSched >= 1 / SCHED_HZ || now < lastSched) {
+          bed.tick(now, SCHED_MS);
+          lastSched = now;
+        }
+        if (now - (engine.lastSweep || 0) > 0.25 || now < (engine.lastSweep || 0)) {
+          engine.sweep(now);
+          engine.lastSweep = now;
+        }
+        prevUpd = null;
+        return;
+      }
       const want = !!playing && !hidden;
       // The film's last frame is not a pause: main.js stops the clock at `duration`, but the score still has its
       // composed ending (final release, closing bell and glass, the hall's tail). Keep playing it on the audio
@@ -247,7 +303,7 @@ export async function create(ctx) {
 
     seek(t) {
       lastT = t;
-      if (!engine) return;
+      if (!engine || exploring) return; // (exploring: the film resumes at the current t when explore ends)
       if (ending) {
         // leaving the ending (a replay or a scrub back): the next update decides between play and pause
         ending = false;
@@ -263,6 +319,17 @@ export async function create(ctx) {
       muted = !!m;
       if (engine) engine.setMuted(muted);
     },
+
+    setExplore(id) {
+      const want = id === null || id === undefined || id === false ? null : String(id);
+      if (want === exploreWant) return;
+      exploreWant = want;
+      try {
+        applyExplore();
+      } catch (err) {
+        console.warn('[audio] explore failed:', err && err.message);
+      }
+    },
   };
 
   // debugging / observability hook (src/audio/tools/live.mjs reads it)
@@ -274,7 +341,8 @@ export async function create(ctx) {
       duration: plan.duration,
       total: plan.total,
       _engine: () => engine, // debugging only
-      info: () => (engine ? { ...engine.info(), active, ending, muted, lastT: +lastT.toFixed(2), journeyAudio: +engine.journeyAt(ac.currentTime).toFixed(2), rate: +rateEma.toFixed(3), resyncs: perf.resyncs, latency: +latency().toFixed(3), updateMsAvg: +(perf.total / Math.max(1, perf.frames)).toFixed(3), updateMsMax: +perf.max.toFixed(2), regenMsMax: +perf.regenMax.toFixed(2), resumeMsMax: +(perf.resumeMs || 0).toFixed(2), pianoNotesReady: engine.piano.size } : { started, engine: null }),
+      api, // the tools drive setExplore through it (main.js may not expose it on app)
+      info: () => (engine ? { ...engine.info(), active, ending, muted, exploring, explore: bed && bed.cur ? { id: bed.cur.id, world: bed.cur.plan.explore.world, cycle: bed.cur.cycle, loop: bed.cur.plan.explore.loop, ...bed.stats } : null, lastT: +lastT.toFixed(2), journeyAudio: +engine.journeyAt(ac.currentTime).toFixed(2), rate: +rateEma.toFixed(3), resyncs: perf.resyncs, latency: +latency().toFixed(3), updateMsAvg: +(perf.total / Math.max(1, perf.frames)).toFixed(3), updateMsMax: +perf.max.toFixed(2), regenMsMax: +perf.regenMax.toFixed(2), resumeMsMax: +(perf.resumeMs || 0).toFixed(2), pianoNotesReady: engine.piano.size } : { started, engine: null }),
     };
   return api;
 }
@@ -315,4 +383,42 @@ export async function renderOffline({ director, sampleRate = 48000, from = 0, to
   const tr = performance.now();
   const buffer = await oac.startRendering();
   return { buffer, plan, info: engine.info(), planMs, renderMs: performance.now() - tr, from, end, len };
+}
+
+// Offline render of explore beds for tools/explore.mjs: `script` = [[seconds, worldId], ...] played back to back
+// through the same ExploreBed as live (first bed fades in from silence, the others crossfade; a segment longer
+// than a bed's plan exercises the roll-over to its next variation).
+export async function renderExploreOffline({ script = [['saturn', 60], ['earth', 60]], sampleRate = 48000, makeupDb = MAKEUP_DB } = {}) {
+  const len = script.reduce((a, [, s]) => a + s, 0) + 3;
+  const oac = new OfflineAudioContext({ numberOfChannels: 2, length: Math.ceil(len * sampleRate), sampleRate });
+  const engine = new Engine(oac, null, { realtime: false, makeupDb });
+  await engine.init();
+  const bed = new ExploreBed(engine, { realtime: false });
+  const marks = [];
+  let at = 0;
+  const pending = script.map(([id, secs]) => {
+    const m = { id, t: at };
+    at += secs;
+    return m;
+  });
+  const end = at;
+  bed.enter(pending[0].id, 0, EXPLORE.enter);
+  marks.push({ ...pending.shift(), world: bed.cur.plan.explore.world, loop: bed.cur.plan.explore.loop });
+  const STEP = 0.5;
+  for (let ct = STEP; ct < len; ct += STEP) {
+    const c = ct;
+    oac.suspend(c).then(() => {
+      if (pending.length && pending[0].t <= c + 1e-6) {
+        bed.enter(pending[0].id, c + 0.03, EXPLORE.swap);
+        marks.push({ ...pending.shift(), world: bed.cur.plan.explore.world, loop: bed.cur.plan.explore.loop });
+      } else if (c >= end && bed.cur) bed.leave(c + 0.03, EXPLORE.enter);
+      const cyc = bed.stats.cycles;
+      bed.tick(c);
+      if (bed.stats.cycles !== cyc) marks.push({ id: bed.cur.id, t: c, world: bed.cur.plan.explore.world, loop: bed.cur.plan.explore.loop, cycle: bed.cur.cycle });
+      engine.sweep(c);
+      oac.resume();
+    });
+  }
+  const buffer = await oac.startRendering();
+  return { buffer, marks, end, info: engine.info(), stats: bed.stats };
 }

@@ -413,6 +413,7 @@ export function analyze(buffer, plan, { from = 0 } = {}) {
   const LEAD_DELAY = { piano: 0.16, choir: 0.5, brass: 0.45 };
   for (const ph of plan.phrases || []) {
     if (!(ph.inst in LEAD_DELAY)) continue;
+    if (ph.duet && ph.tune) continue; // a doubling of a tune (the voice, strings, a horn an octave below) is part of its blend: the tune itself is measured
     const evs = plan.events.filter((e) => e.motif && e.lead && e.t >= ph.t0 - 0.3 && e.t <= ph.t1 + 0.05 && (ph.inst === 'piano' ? e.type === 'piano' : ph.inst === 'choir' ? e.type === 'choir' : e.type === 'brass'));
     // melody notes still ringing (this phrase and any phrase that ended within 3 s) are the melody, not the pad
     const ringing = (plan.phrases || []).filter((q) => q.t0 <= ph.t1 && q.t1 + 3 >= ph.t0).flatMap((q) => q.notes);
@@ -632,4 +633,83 @@ export async function streamWav(buffer, sink, chunkFrames = 1 << 19) {
     }
     await sink(await toB64(new Uint8Array(out.buffer)));
   }
+}
+
+// A compact measurement of one stretch [t0, t1) of a buffer (the explore-bed tool): BS.1770 integrated loudness
+// (gated) and the short-term (3 s) curve, sample peak, the 4x-oversampled true peak, the largest sample-to-sample
+// step (a click shows as a step far above the stretch's typical one), NaN count.
+export function measure(buffer, t0 = 0, t1 = Infinity) {
+  const sr = buffer.sampleRate;
+  const a = Math.max(0, Math.floor(t0 * sr)),
+    b = Math.min(buffer.length, Math.floor(t1 * sr));
+  const L = buffer.getChannelData(0).subarray(a, b),
+    R = (buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : buffer.getChannelData(0)).subarray(a, b);
+  const n = L.length;
+  let peak = 0, step = 0, stepAt = 0, nan = 0, sq = 0;
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(L[i]) || !Number.isFinite(R[i])) nan++;
+    const p = Math.max(Math.abs(L[i]), Math.abs(R[i]));
+    if (p > peak) peak = p;
+    sq += L[i] * L[i] + R[i] * R[i];
+    if (i) {
+      const d = Math.max(Math.abs(L[i] - L[i - 1]), Math.abs(R[i] - R[i - 1]));
+      if (d > step) { step = d; stepAt = i; }
+    }
+  }
+  // true peak (4x): linear-phase windowed-sinc interpolation where the signal is within 6 dB of its peak
+  const TP = 32;
+  const phases = [0.25, 0.5, 0.75].map((p) => {
+    const c = new Float64Array(TP);
+    let s = 0;
+    for (let t = 0; t < TP; t++) {
+      const x = t - (TP / 2 - 1) - p;
+      const w = 0.42 + 0.5 * Math.cos((Math.PI * x) / (TP / 2)) + 0.08 * Math.cos((2 * Math.PI * x) / (TP / 2));
+      c[t] = (x === 0 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x)) * Math.max(0, w);
+      s += c[t];
+    }
+    for (let t = 0; t < TP; t++) c[t] /= s;
+    return c;
+  });
+  let tp = peak;
+  for (const X of [L, R])
+    for (let i = TP; i < n - TP; i++) {
+      if (Math.abs(X[i]) < peak * 0.5 && Math.abs(X[i + 1]) < peak * 0.5) continue;
+      for (const c of phases) {
+        let s = 0;
+        const o = i - (TP / 2 - 1);
+        for (let t = 0; t < TP; t++) s += c[t] * X[o + t];
+        if (Math.abs(s) > tp) tp = Math.abs(s);
+      }
+    }
+  const kl = kWeight(L, sr), kr = kWeight(R, sr);
+  const hop = Math.round(0.1 * sr);
+  const hops = [];
+  for (let i = 0; i + hop <= n; i += hop) {
+    let s = 0;
+    for (let j = i; j < i + hop; j++) s += kl[j] * kl[j] + kr[j] * kr[j];
+    hops.push(s / hop);
+  }
+  const win = (k) => {
+    const out = [];
+    for (let i = k; i <= hops.length; i++) {
+      let s = 0;
+      for (let j = i - k; j < i; j++) s += hops[j];
+      out.push(s / k);
+    }
+    return out;
+  };
+  const st = win(30).map((z) => +(-0.691 + db(z)).toFixed(1));
+  return {
+    seconds: +(n / sr).toFixed(1),
+    lufs: +gatedLoudness(win(4)).toFixed(1),
+    stMin: st.length ? Math.min(...st) : null,
+    stMax: st.length ? Math.max(...st) : null,
+    rmsDb: +(db(sq / (2 * Math.max(1, n)))).toFixed(1),
+    peakDb: +amp(peak).toFixed(2),
+    truePeakDb: +amp(tp).toFixed(2),
+    maxStep: +step.toFixed(4),
+    maxStepAt: +(t0 + stepAt / sr).toFixed(3),
+    nan,
+    st,
+  };
 }

@@ -23,13 +23,13 @@ if (pageFile === 'dev.html' && !(await up())) {
   for (let i = 0; i < 50 && !(await up()); i++) await new Promise((r) => setTimeout(r, 100));
 }
 const url = pageFile === 'dev.html' ? `http://localhost:${PORT}/dev.html` : pathToFileURL(path.join(root, pageFile)).href;
-const chrome = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'].find((c) => fs.existsSync(c));
+const chrome = [process.env.CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'].filter(Boolean).find((c) => fs.existsSync(c));
 const browser = await puppeteer.launch({
   executablePath: chrome,
   headless: 'new',
   userDataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'splash-chrome-')),
   defaultViewport: { width: 1600, height: 900, deviceScaleFactor: 1 },
-  args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-gpu-sandbox', '--autoplay-policy=no-user-gesture-required', '--window-size=1600,900'],
+  args: [process.platform === 'win32' ? '--use-angle=d3d11' : process.platform === 'darwin' ? '--use-angle=metal' : '--use-angle=default', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-gpu-sandbox', '--autoplay-policy=no-user-gesture-required', '--window-size=1600,900'],
 });
 const page = await browser.newPage();
 const errs = [];

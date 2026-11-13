@@ -2,6 +2,7 @@
 //   node src/audio/tools/underrun.mjs [--q "only=director,score"] [--t 292] [--secs 10]
 // Runs: the full engine; the hall (convolver) bypassed; and a bare context (an oscillator) as the machine baseline.
 import puppeteer from 'puppeteer-core';
+import { findChrome, ANGLE } from './chrome.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -14,8 +15,8 @@ const T = Number(arg('t', 292));
 const SECS = Number(arg('secs', 10));
 const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-underrun-'));
 const browser = await puppeteer.launch({
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', userDataDir, protocolTimeout: 600000, defaultViewport: { width: 1280, height: 720 },
-  args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
+  executablePath: findChrome(), headless: 'new', userDataDir, protocolTimeout: 600000, defaultViewport: { width: 1280, height: 720 },
+  args: [ANGLE, '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
 });
 try {
   const page = await browser.newPage();

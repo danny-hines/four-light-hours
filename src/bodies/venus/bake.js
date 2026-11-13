@@ -93,10 +93,27 @@ function streakField(N, x, y, z, Ym, seedOff) {
     amp *= 0.6;
     f *= 2.03;
   }
+  // SPIRAL STREAKS (the Mariner 10 / Pioneer Venus look): poleward of ~15 deg the streaks are not zonal - they trail
+  // poleward and westward at 15-30 deg to the latitude circles, the same sense in both hemispheres (a chevron about
+  // the equator, the arms of the Y being its largest member). Noise stretched along latitude circles cannot tilt, so
+  // this part is a sum of spiral wave trains cos(m lon + s g(|lat|) + phase) with integer zonal wavenumbers (seamless),
+  // their phases bent and their amplitudes broken up by low-frequency noise so no train reads as a regular stripe.
+  const lon = Math.atan2(-z, x), al = Math.abs(Math.asin(Math.max(-1, Math.min(1, y))));
+  const g = al + 0.35 * al * al;                       // winds a little tighter toward the collar
+  const pw = 2.6 * N(x * 1.5 + seedOff * 0.7, y * 1.5 + 2.2, z * 1.5 - 4.1) + 1.1 * N(x * 3.7 - 2.9, y * 3.7 + seedOff, z * 3.7 + 0.6);
+  let sp = 0;
+  for (let k = 0; k < 4; k++) {
+    const m = SPIRAL_M[k], sk = SPIRAL_S[k];
+    const a = 0.45 + 0.55 * smooth(-0.3, 0.4, N(x * 1.9 + 7.3 * k + seedOff, y * 1.9 - 3.3 * k, z * 1.9 + 1.7 * k));
+    sp += SPIRAL_A[k] * a * Math.cos(m * lon + sk * g + 1.9 * k + seedOff + pw * (0.6 + 0.25 * k));
+  }
+  const spEnv = smooth(0.14, 0.42, al) * (1 - smooth(0.95, 1.2, al));
+  v = v * (1 - 0.55 * spEnv) + 1.05 * sp * spEnv;
   // bright-skewed: the streaks are mostly thin white (absorber-poor, optically thicker) bands on a tan background
   v = v + 0.9 * Math.min(v, 0);
   return v * env * 0.5;
 }
+const SPIRAL_M = [3, 5, 8, 13], SPIRAL_S = [9, 15, 23, 36], SPIRAL_A = [0.5, 0.62, 0.5, 0.36];
 
 export function bakePlanetary() {
   const { W, H } = BAKE;

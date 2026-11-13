@@ -53,7 +53,8 @@ export function particleProps(rk, tau) {
   // ~0.15-0.25 of the B ring's at low phase (with tau ~ 0.1 the slab factor alone gives ~0.1), the rest is the
   // brighter plateaus and the stronger forward-backward multiple scattering among its larger, more porous particles
   // (an effective albedo: it also absorbs what the classical slab misses for a thin, vertically extended layer)
-  r += C * (0.58 + 0.2 * plate); g += C * (0.53 + 0.18 * plate); b += C * (0.47 + 0.15 * plate); dust += C * 0.03;
+  // (wave 3: x1.35 and warmer -- on the lit face it read as a grey void between the globe and the B ring)
+  r += C * (0.80 + 0.2 * plate); g += C * (0.70 + 0.18 * plate); b += C * (0.585 + 0.15 * plate); dust += C * 0.03;
   // B ring: brightest, salmon; the inner B1 region a touch darker; denser bands brighter (lit-face structure)
   const b1 = 1 - smooth(92000, 99000, rk);
   const bd = 0.86 + 0.22 * smooth(0.9, 5.2, tau);
@@ -71,7 +72,7 @@ export function particleProps(rk, tau) {
   // linearised hue of Cassini true-colour ring images (B ring tan-salmon, display B/R ~ 0.66; A ring greyer ~0.78;
   // C ring / Cassini Division grey-tan): x1.55 around the luminance in the dense rings, x1.25 in the C ring / CD
   const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  const k = 1 + 0.55 * (B + A) + 0.25 * (C + CD);
+  const k = 1 + 0.55 * (B + A) + 0.45 * C + 0.25 * CD;
   return [y + (r - y) * k, y + (g - y) * k, Math.max(0, y + (b - y) * k), dust];
 }
 
@@ -184,10 +185,14 @@ export function brightnessStructure(tau) {
     let hp = Math.max(-1.2, Math.min(1.2, Ls[i] - Ll[i]));
     // B ring (B2-B4): PPS saturated -> structure is noise; replace by irregular band structure
     const sat = smooth(99000, 100500, rk) * (1 - smooth(116800, 117300, rk));
-    const irr = 0.5 * bandNoise(rk, 260, 11, 25) + 0.3 * bandNoise(rk, 95, 23, 8) + 0.2 * bandNoise(rk, 33, 37, 4) + 0.12 * bandNoise(rk, 11, 41, 2);
-    hp = hp * (1 - 0.75 * sat) + irr * 0.55 * sat;
+    // (wave 3: a broader, ~1/f hierarchy from 900 km down to 4 km with abrupt edges, at about twice the contrast: the
+    //  lit-face B ring in Cassini's close passes is a stack of thousands of sharp ringlets differing by 20-40 % in
+    //  brightness -- 'grooves on a record' -- not a few brushed bands)
+    const irr = 0.42 * bandNoise(rk, 900, 5, 60) + 0.5 * bandNoise(rk, 260, 11, 18) + 0.36 * bandNoise(rk, 95, 23, 6) + 0.27 * bandNoise(rk, 33, 37, 3)
+      + 0.2 * bandNoise(rk, 11, 41, 1.5) + 0.14 * bandNoise(rk, 4, 53, 1);
+    hp = hp * (1 - 0.75 * sat) + irr * 0.9 * sat;
     // inner B ring (B1) and the A ring keep their real (unsaturated) structure, slightly enhanced
-    out[i] = Math.exp(dense * 0.32 * hp);
+    out[i] = Math.exp(dense * (0.42 + 0.06 * sat) * hp);
   }
   return out;
 }

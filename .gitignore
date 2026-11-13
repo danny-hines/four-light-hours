@@ -20,3 +20,7 @@ src/journey/dev/.ephem.json
 # generated dev artifacts (ANGLE/HLSL dumps, backups)
 *.bak
 src/**/dev/hlsl/
+
+# web build output (npm run build:web) and Vercel's local link
+dist/
+.vercel/

@@ -15,5 +15,7 @@ export const ICONS = {
   hudOff: svg('<rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M6.5 15.5h6M6.5 13h3.5" opacity=".35"/><path d="M3 3l18 18"/>'),
   // labels: a reticle
   labels: svg('<circle cx="12" cy="12" r="4.2"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/>'),
+  // explore: a world with an orbit swung round it
+  explore: svg('<circle cx="12" cy="12" r="3.4"/><ellipse cx="12" cy="12" rx="9.6" ry="3.6" transform="rotate(-24 12 12)"/>'),
   headphones: svg('<path d="M4.5 15.5v-3a7.5 7.5 0 0 1 15 0v3"/><rect x="3.5" y="14.5" width="4" height="6" rx="1.4"/><rect x="16.5" y="14.5" width="4" height="6" rx="1.4"/>', 'width="15" height="15"'),
 };

@@ -72,7 +72,7 @@ const IGHOST = { amp: 4e-4, threshold: 2.0 };
 // Gaussian sigma and offset of the beam axis from the frame centre in frame heights, fall-off length along it).
 // Like the sunbeams in Voyager 1's Pale Blue Dot frame: stray light reflected off the sunshade into a faint band
 // that runs from the sun's side across the field, with a broader, fainter companion.
-const BEAM = { amp: 0.05, width: 0.022, offset: 0.01, length: 0.7 };
+const BEAM = { amp: 0.15, width: 0.026, offset: 0.0, length: 0.9 };
 
 // Aperture ghosts along the axis through the frame centre (wave 2: five, not nine). A real multi-coated cine
 // lens shows only a handful of ghosts strong enough to see, one per dominant pair of reflecting surfaces, and each

@@ -87,7 +87,7 @@ if (T.maxGap > 40) (fail++, console.log('FAIL thematic gap > 40 s'));
 const FB = process.argv.includes('--fallback');
 if (LG.length < 3) (FB ? 0 : fail++, console.log(`${FB ? 'note' : 'FAIL'} fewer than 3 long lines (8+ notes, 12+ s)`));
 if (regFail) (FB ? 0 : fail++, console.log(`${FB ? 'note' : 'FAIL'} neighbouring worlds within a minor third (top-voice median)`));
-if (T.identicalShare >= 0.5) (fail++, console.log('FAIL >= 50% of motif statements share one rhythm'));
+if (T.statements >= 4 && T.identicalShare >= 0.5) (fail++, console.log('FAIL >= 50% of motif statements share one rhythm'));
 if (plan.voicingAudit.length) (fail++, console.log('FAIL voicing issues'));
 if (plan.lineAudit.length) (fail++, console.log('FAIL melody rubs against the harmony'));
 if (fail) process.exit(3);

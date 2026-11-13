@@ -37,9 +37,10 @@ float logistic(float x) { return 1.0 / (1.0 + exp(-x)); }
 // map value -> (in-cloud albedo A, coverage c), A * c = the map's layer reflectance R0. Thick decks reach A 0.95
 // (two-stream albedo of tau ~60 water cloud); thin / broken cloud is greyer per unit area.
 vec2 cloudAC(float m) {
-  float R0 = smoothstep(0.045, 0.9, m);
-  R0 = R0 * R0 * (3.0 - 2.0 * R0) * 0.35 + R0 * 0.65;
-  float A = mix(0.42, 0.95, smoothstep(0.25, 0.9, R0));
+  // (the map is a visible / IR composite whose value is close to how white the cloud looks: an exponential
+  // saturation keeps the thin veils and mid-level decks - half the planet's cloud - instead of thresholding them away)
+  float R0 = 1.0 - exp(-3.6 * pow(max(m - 0.02, 0.0), 1.8));
+  float A = mix(0.42, 0.96, smoothstep(0.2, 0.85, R0));
   return vec2(A, clamp(R0 / A, 0.0, 1.0));
 }
 
@@ -142,7 +143,10 @@ float cloudField(vec3 pb, vec2 uv0, vec4 g, float fp, vec3 dPx, vec3 dPy, int ma
   float warpW = smoothstep(CLOUD_TEXEL * 1.2, CLOUD_TEXEL * 0.3, fp) * uDetail;
   float w2 = smoothstep(CLOUD_TEXEL * 0.5, CLOUD_TEXEL * 0.15, fp);
   vec2 sc = warpW * vec2(1.0 / (2048.0 * max(cl, 0.08)), 1.0 / 1024.0);
-  float m = 0.0;
+  float m = 0.0, mb = 0.0;
+  // mip level of the map lookup (for the unsharp mask below)
+  vec2 tgx = g.xy * vec2(2048.0, 1024.0), tgy = g.zw * vec2(2048.0, 1024.0);
+  float lodB = max(0.5 * log2(max(max(dot(tgx, tgx), dot(tgy, tgy)), 1e-8)), 0.0) + 2.6;
   vec3 q0 = pb, q1 = pb, w0 = vec3(0.0), w1 = vec3(0.0);
   vec2 r0 = vec2(1.0, 0.0), r1 = vec2(1.0, 0.0);
   for (int k = 0; k < uLoopMax; k++) {
@@ -162,7 +166,11 @@ float cloudField(vec3 pb, vec2 uv0, vec4 g, float fp, vec3 dPx, vec3 dPy, int ma
     }
     if (k == 0) { q0 = q; r0 = cs; w0 = wk; } else { q1 = q; r1 = cs; w1 = wk; }
     m += textureGrad(uClouds, u, g.xy, g.zw).r * (k == 0 ? uFlow.w : 1.0 - uFlow.w);
+    mb += textureLod(uClouds, u, lodB).r * (k == 0 ? uFlow.w : 1.0 - uFlow.w);
   }
+  // unsharp mask (radius ~6 px or ~6 texels): local contrast of the map's own structure - frontal bands, cell fields
+  // and cyclone arms stay distinct from the veil around them at disc scale
+  m = clamp(m + 0.55 * (m - mb), 0.0, 1.0);
   vec2 AC = cloudAC(m);
   R0mean = AC.x * AC.y;
   float c = AC.y;

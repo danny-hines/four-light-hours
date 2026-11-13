@@ -980,8 +980,9 @@ export async function create(ctx) {
       glintGain: Math.max(0, val('glint', t, 1)),
       // display-space peak floor for planet glints (finale: planets as labelled points)
       glintFloor: clamp(val('glintFloor', t, 0), 0, 1),
-      // the pale blue dot: every glint scaled so Earth's point peaks at `peak` after exposure (w blends it in)
-      glintNorm: val('pbdNorm', t, 0) > 1e-3 ? { id: 'earth', peak: 0.42, w: clamp(val('pbdNorm', t, 0), 0, 1) } : null,
+      // the pale blue dot: every glint scaled so Earth's point peaks at `peak` after exposure (w blends it in), its
+      // core widened by `sig` so the point survives any display scaling and reads from across a room
+      glintNorm: val('pbdNorm', t, 0) > 1e-3 ? { id: 'earth', peak: 1.0, sig: 2.2, others: 0.4, w: clamp(val('pbdNorm', t, 0), 0, 1) } : null,
       // suggested gain for the wide-shot asteroid belt ring: the real belt is invisible to the eye, so it
       // fades out whenever the exposure is pushed for faint subjects (night side, eclipse, pale blue dot)
       // shot content: the ring belongs to the belt chapter and the finale's wide view only (the band it draws

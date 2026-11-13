@@ -35,6 +35,7 @@ export function hazeShaders() {
     uniform float uTwK;       // diffusion attenuation of the twilight light per unit vertical optical depth above
     uniform float uMsF;       // forward-diffused share of the sunbeam that the single-scattering extinction removed
     uniform vec3 uMsTint;     // colour of multiply scattered light (the cloud's own cream: the unknown blue absorber)
+    uniform vec4 uFwd;        // forward-scatter look: rgb tint, a = gain of the forward lobe (back-lit views only)
     varying vec3 vPos;
 
     float sq(float x) { return x * x; }
@@ -62,6 +63,13 @@ export function hazeShaders() {
       float pA = phaseAer(c), pR = phaseRay(c);
       // multiply scattered light still travels roughly sunward-to-antisunward: a broadened forward lobe
       float pMs = 0.75 * hg(0.6, c) + 0.25;
+      // BACK-LIT LOOK. Seen against the Sun the haze is the picture: the droplets' diffraction peak (far narrower and
+      // stronger than a two-term HG carries) lights the limb into a ring. The forward lobe gets an extra gain and a
+      // warm tint that ramp in only for scattering angles under ~50 deg, so every day-side view is unchanged while
+      // the crescent's limb reaches HDR values (~10-30) that the film's bloom spreads into a glowing atmosphere.
+      float fw = smoothstep(0.45, 0.97, c);
+      float fwdG = 1.0 + uFwd.a * fw;
+      vec3 fwdT = mix(vec3(1.0), uFwd.rgb, fw);
       vec3 L = vec3(0.0);
       vec3 tauV = vec3(0.0);   // view-path optical depth so far (camera side)
       float invN = 1.0 / float(uSteps);
@@ -110,7 +118,7 @@ export function hazeShaders() {
             vec3 tauUp = (uAerB * uHgt.x * exp(-h / uHgt.x) + uUpB * uHgt.y * exp(-h / uHgt.y)) * pol + uExtB * uHgt.w * exp(-h / uHgt.w);
             tw = uMsTint * uTwA * exp(-dc / uTwilight - sq(dc / 0.5)) * smoothstep(-0.08, 0.04, dchi) * exp(-uTwK * tauUp);
           }
-          vec3 src = Ts * pA + uMsF * Tf * uMsTint * pMs + J + tw * pMs;
+          vec3 src = (Ts * pA + uMsF * Tf * uMsTint * pMs + tw * pMs) * fwdG * fwdT + J;
           vec3 S = (sA * src + sR * (Ts * pR + J + tw)) * 0.25;
           // light that left the deep, optically thick limb has been scattered several times: give it the tint of
           // the slightly blue-absorbing droplets (uMsTint^n with n growing with the optical depth already crossed)

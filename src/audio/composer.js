@@ -7,6 +7,8 @@ import { chord, voiceChord, stackVoicing, Rng, midi, mtof, mod12, THEMES, themeB
 export const LANE_HZ = 20; // automation lane resolution (samples per journey second)
 export const TAIL = 7; // seconds of music after the film's last frame (reverb and final release)
 
+// a salt for every seeded choice of one compose() call (explore beds: each cycle of a bed is a new variation)
+let SALT = '';
 const smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 const lerp = (a, b, x) => a + (b - a) * x;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -203,13 +205,22 @@ function buildSections(chapters, duration, warps) {
 function fit(chords, L, W, cadence, lastSeg, preAnchor, lined = new Set(), must = new Set()) {
   const len = chords.length;
   const cad = lastSeg && cadence ? 1 : 0;
-  // chords a tune is written over (worlds.js `tunes`) are always kept, in order, and never repeated
-  const mustN = chords.filter((c) => must.has(c.idx)).length;
-  let n = Math.max(1, Math.round(L / W.chordDur));
-  const want = len + cad;
-  if (n < want) n = Math.min(want, Math.max(n, Math.floor(L / (W.chordDur * (W.compress ?? (preAnchor ? 0.5 : 0.7))) + 1e-6)));
+  // chords a tune is written over (worlds.js `tunes`) are always kept, in order, and never repeated; they take the
+  // time their bars need, and only what is left of the segment is filled with the other chords
+  const mustC = chords.filter((c) => must.has(c.idx));
+  const mustN = mustC.length;
+  const cadMust = cad && must.has(cadence.idx) ? 1 : 0;
+  const mustT = mustC.reduce((a, c) => a + c.w * W.chordDur, 0) + (cadMust ? cadence.w * W.chordDur : 0);
+  const Lf = Math.max(0, L - mustT);
+  const comp = W.compress ?? (preAnchor ? 0.5 : 0.7);
+  let nf = Math.round(Lf / W.chordDur);
+  const wantF = len - mustN + (cad - cadMust);
+  if (nf < wantF) nf = Math.min(wantF, Math.max(nf, Math.floor(Lf / (W.chordDur * comp) + 1e-6)));
+  let n = Math.max(1, mustN + cadMust + nf);
   if (cad && n === 1 && L > 0.9 * W.chordDur) n = 2;
   n = Math.max(n, mustN + (cad ? 1 : 0));
+  // the chord that prepares an anchor (the dominant) is kept even when a tune fills the segment
+  if (preAnchor && len && !must.has(chords[len - 1].idx)) n = Math.max(n, mustN + 1);
   const slots = cad && n >= 2 ? n - 1 : n;
   let seq;
   if (slots >= len) {
@@ -255,12 +266,19 @@ function tuneSpans(W) {
 // world's chordDur (the unit every other chord's `w` is written in)
 function spanWeights(W, spans) {
   const m = new Map();
-  for (const sp of spans) sp.idxs.forEach((idx, k) => m.set(idx, (sp.parsed.bars[k] * sp.parsed.beat) / W.chordDur));
+  m.elastic = new Set(); // bars that absorb whatever time is left over (a final held note)
+  for (const sp of spans)
+    sp.idxs.forEach((idx, k) => {
+      m.set(idx, (sp.parsed.bars[k] * sp.parsed.beat) / W.chordDur);
+      if (sp.parsed.elastic.has(k)) m.elastic.add(idx);
+    });
   return m;
 }
-function chordTimeline(sec, prevChord, nextSec, isLast, cueTimes) {
+function chordTimeline(sec, prevChord, nextSec, isLast, cueTimes, opts = {}) {
   const W = sec.W;
   const segs = [];
+  let sw = new Map();
+  sw.elastic = new Set();
   if (sec.world === 'transit' || !W.prog.length) {
     // pivot: the tones shared by where we were and where we are going
     const nextFirst = nextSec && nextSec.W.prog.length ? chord(nextSec.W.prog[0]) : null;
@@ -280,8 +298,8 @@ function chordTimeline(sec, prevChord, nextSec, isLast, cueTimes) {
       const next = Object.entries(W.anchors || {}).filter(([cue, idx]) => idx > first && cueTimes[cue] !== undefined && cueTimes[cue] > t0 + 1 && cueTimes[cue] < sec.cruiseEnd - 2).map(([cue]) => cueTimes[cue]);
       return (next.length ? Math.min(...next) : sec.cruiseEnd) - t0;
     };
-    const spans = tuneSpans(W).filter((sp) => spanTime(sp) >= 0.6 * sp.parsed.total * sp.parsed.beat);
-    const sw = spanWeights(W, spans);
+    const spans = opts.explore ? [] : tuneSpans(W).filter((sp) => spanTime(sp) >= 0.6 * sp.parsed.total * sp.parsed.beat);
+    sw = spanWeights(W, spans);
     const must = new Set(sw.keys());
     const prog = W.prog.map((spec, i) => ({ ...chord(spec), idx: i, ...(sw.has(i) ? { w: sw.get(i) } : {}) }));
     const cadence = !isLast && W.cadence ? { ...chord(W.cadence), idx: 'cad', ...(sw.has('cad') ? { w: sw.get('cad') } : {}) } : null;
@@ -307,7 +325,7 @@ function chordTimeline(sec, prevChord, nextSec, isLast, cueTimes) {
     }
     segs.push({ t0: ta, t1: sec.cruiseEnd, seq: fit(prog.slice(ia), sec.cruiseEnd - ta, W, cadence, true, false, lined, must) });
   }
-  if (isLast) {
+  if (isLast && !opts.explore) {
     const last = segs[segs.length - 1];
     if (!last.seq[last.seq.length - 1].final) {
       const fin = { ...chord(FINAL_CHORD), idx: 'final', w: 2.5 };
@@ -323,23 +341,44 @@ function chordTimeline(sec, prevChord, nextSec, isLast, cueTimes) {
     // a world with a pulse (Mars) changes chord on bar lines: whole bars per chord (largest remainder), the
     // segment's last chord absorbing what is left of the segment
     let bars = null;
+    const isTune = (c) => sw.has(c.idx) && !sw.elastic.has(c.idx);
     if (W.grid) {
       const nb = Math.max(sg.seq.length, Math.round(Ls / W.grid));
-      // cumulative rounding: bar lines at round(cumulative weight), each chord at least one bar
-      bars = [];
-      let cum = 0,
-        prevB = 0;
-      sg.seq.forEach((c, k) => {
-        cum += c.w;
-        let b = Math.max(prevB + 1, Math.round((cum / wsum) * nb));
-        b = Math.min(b, nb - (sg.seq.length - 1 - k));
-        bars.push(b - prevB);
-        prevB = b;
-      });
+      const natural = sg.seq.map((c) => Math.max(1, Math.round((c.w * W.chordDur) / W.grid)));
+      const natSum = natural.reduce((a, b) => a + b, 0);
+      if (sg.seq.some(isTune) && sg.seq.every((c) => sw.has(c.idx)) && natSum <= nb) {
+        // a tune over the pulse: every bar of it is exactly its own bars of the grid; its last chord takes the rest
+        bars = natural;
+        bars[bars.length - 1] += nb - natSum;
+      } else {
+        // cumulative rounding: bar lines at round(cumulative weight), each chord at least one bar
+        bars = [];
+        let cum = 0,
+          prevB = 0;
+        sg.seq.forEach((c, k) => {
+          cum += c.w;
+          let b = Math.max(prevB + 1, Math.round((cum / wsum) * nb));
+          b = Math.min(b, nb - (sg.seq.length - 1 - k));
+          bars.push(b - prevB);
+          prevB = b;
+        });
+      }
+    }
+    // A tune keeps its own tempo: when its segment also holds free chords (or an elastic last bar), those absorb
+    // the difference between the time there is and the time the tune needs (down to 45% of their own length, up to
+    // any length); only a segment that is all tune stretches or squeezes it.
+    let durs = sg.seq.map((c) => (Ls * c.w) / wsum);
+    const T = sg.seq.filter(isTune).reduce((a, c) => a + c.w * W.chordDur, 0),
+      Fr = sg.seq.filter((c) => !isTune(c)).reduce((a, c) => a + c.w * W.chordDur, 0);
+    if (!bars && T > 0 && Fr > 0) {
+      let tF = Math.max(0.45 * Fr, Ls - T);
+      if (tF > Ls - 0.6 * T) tF = Math.max(0.2 * Fr, Ls - 0.6 * T); // no room: the tune will give way (ratio check)
+      const tT = Ls - tF;
+      durs = sg.seq.map((c) => (isTune(c) ? (c.w * W.chordDur * tT) / T : (c.w * W.chordDur * tF) / Fr));
     }
     let t = sg.t0;
     sg.seq.forEach((c, k) => {
-      const d = bars ? (k === sg.seq.length - 1 ? sg.t1 - t : bars[k] * W.grid) : (Ls * c.w) / wsum;
+      const d = bars ? (k === sg.seq.length - 1 ? sg.t1 - t : bars[k] * W.grid) : durs[k];
       const lastOfAll = si === segs.length - 1 && k === sg.seq.length - 1;
       out.push({ t0: t, t1: lastOfAll ? sec.t1 : t + d, cruise1: t + d, chord: c, k: out.length });
       t += d;
@@ -390,7 +429,7 @@ function edgeAt(S, x, dflt) {
   const L = sec.t1 - sec.t0;
   if (x === undefined || x === null) return dflt;
   if (typeof x === 'number') return sec.t0 + x * L;
-  const m = /^(.*?)([+-]d+(?:.d+)?)?$/.exec(String(x));
+  const m = /^(.*?)([+-]\d+(?:\.\d+)?)?$/.exec(String(x));
   const t = S.cueTimes && S.cueTimes[m[1]];
   return t === undefined ? dflt : clamp(t + Number(m[2] || 0), sec.t0, sec.t1);
 }
@@ -536,7 +575,7 @@ function genGlass(S, P) {
 // mode from a start note. The beat is the line's own (or fitted to its chord) and is compressed, never
 // truncated, if the next line or the departure comes sooner; a line with no room is skipped, so the plan adapts
 // to whatever chapter times the director provides.
-const INST_TYPE = { piano: 'piano', voice: 'choir', horn: 'brass', bell: 'bell', glass: 'glass', cello: 'bow' };
+const INST_TYPE = { piano: 'piano', voice: 'choir', horn: 'brass', bell: 'bell', glass: 'glass', cello: 'bow', strings: 'bow' };
 const LEADS = new Set(['piano', 'choir', 'brass', 'bow']);
 // The closing phrase when the film happens to end in a world without one (fallback timing).
 const FINAL_LINE = { theme: 'END', from: 'F#5', scale: 'D major', inst: ['piano'], beat: 0.95, lh: true, coda: true, role: 'theme' };
@@ -561,8 +600,14 @@ function realizeTunes(sections) {
         failed.push({ s, spec, why: 'span chords missing' });
         continue;
       }
-      const beats = bars.map((c, k) => (c.cruise1 - c.t0) / parsed.bars[k]);
-      const ratio = beats.map((b) => b / parsed.beat);
+      let beats = bars.map((c, k) => (c.cruise1 - c.t0) / parsed.bars[k]);
+      // an elastic bar (a final held note) is as long as the cut leaves it: its notes keep the tune's own tempo
+      // (the mean of the other bars), they do not stretch with it; over a pulse (Mars) a bar is never slower than
+      // the pulse (a chord that got an extra bar of the grid just waits)
+      const firm = beats.filter((_, k) => !parsed.elastic.has(k));
+      const tempo = firm.length ? firm.reduce((a, b) => a + b, 0) / firm.length : parsed.beat;
+      beats = beats.map((b, k) => (parsed.elastic.has(k) ? Math.min(b, tempo) : s.W.grid ? Math.min(b, parsed.beat) : b));
+      const ratio = beats.map((b, k) => (parsed.elastic.has(k) ? 1 : b / parsed.beat));
       if (ratio.some((r) => r < 0.6 || r > 1.6)) {
         failed.push({ s, spec, why: `tempo ${ratio.map((r) => r.toFixed(2)).join('/')}` });
         continue;
@@ -598,7 +643,7 @@ function realizeTunes(sections) {
           // the melody makes the accompaniment step back fully; a counter-melody is part of the accompaniment
           weight: counter || part.double ? 0 : spec.duck ?? 1,
           name: spec.tune + (counter ? '.' + part.part : ''), world: s.world, sec: s.index, chord: bars[0].chord.name,
-          line: { ...spec, ...part, role: 'theme' }, beat: beats.reduce((a, b) => a + b, 0) / beats.length, c: bars[0], bars,
+          line: { ...spec, ...part, role: 'theme' }, beat: tempo, c: bars[0], bars, elastic: parsed.elastic,
         });
       }
     }
@@ -606,7 +651,7 @@ function realizeTunes(sections) {
   return { phrases, failed };
 }
 
-function realizeLines(sections, total, tunes = { phrases: [], failed: [] }) {
+function realizeLines(sections, total, tunes = { phrases: [], failed: [] }, opts = {}) {
   const phrases = [];
   sections.forEach((s, si) => {
     const lines = (s.W.lines || []).slice();
@@ -614,16 +659,39 @@ function realizeLines(sections, total, tunes = { phrases: [], failed: [] }) {
     for (const f of tunes.failed) if (f.s === s && f.spec.alt) lines.push(...f.spec.alt);
     const lastChord = s.chords[s.chords.length - 1];
     const tuneHere = tunes.phrases.filter((p) => p.sec === s.index && !p.counter && !p.duet);
-    if (si === sections.length - 1 && lastChord.chord.final && !lines.some((l) => l.at === lastChord.chord.idx) && !tuneHere.some((p) => p.bars.includes(lastChord))) lines.push({ ...FINAL_LINE, at: lastChord.chord.idx });
+    if (!opts.explore && si === sections.length - 1 && lastChord.chord.final && !lines.some((l) => l.at === lastChord.chord.idx) && !tuneHere.some((p) => p.bars.includes(lastChord))) lines.push({ ...FINAL_LINE, at: lastChord.chord.idx });
     const items = [];
-    for (const ln of lines) {
-      const c = s.chords.find((ch) => ch.chord.idx === ln.at);
-      if (!c) continue; // its chord was not kept for this timing
-      const cd = c.cruise1 - c.t0;
-      const t = c.t0 + (ln.delay ?? Math.min(0.7, 0.1 * cd));
-      if (tuneHere.some((p) => t > p.t0 - 1 && t < p.t1 + 0.3)) continue; // a tune is sounding: it is the melody
-      items.push({ ln, c, t });
-    }
+    if (opts.explore) {
+      // an explore bed: no tunes; now and then (every 20-35 s) one fragment of the themes, drawn from everything
+      // this world's chapter plays (its lines and its tunes' fragments), on the chord it was written for
+      const pool = [...(s.W.lines || []), ...(s.W.tunes || []).flatMap((t) => t.alt || []), ...(s.W.exploreLines || [])].filter((l) => !l.clash);
+      const rng = new Rng(`four-light-hours/explore-lines/${s.world}${SALT}`);
+      let next = 8 + rng.range(0, 9);
+      for (const c of s.chords) {
+        const cand = pool.filter((l) => l.at === c.chord.idx);
+        if (!cand.length) continue;
+        // (a long pedal may carry several, each waiting its turn)
+        for (let k = 0; k < 6; k++) {
+          const ln = rng.pick(cand);
+          let t = c.t0 + (ln.delay ?? Math.min(0.7, 0.1 * (c.cruise1 - c.t0)));
+          if (t < next) {
+            if (c.cruise1 - next < 12) break;
+            t = next;
+          }
+          if (t > s.t1 - 16 || t > c.cruise1 - 6) break;
+          items.push({ ln: { ...ln, ride: false, coda: false, vel: (ln.vel ?? 1) * 0.85 }, c, t });
+          next = t + rng.range(20, 35);
+        }
+      }
+    } else
+      for (const ln of lines) {
+        const c = s.chords.find((ch) => ch.chord.idx === ln.at);
+        if (!c) continue; // its chord was not kept for this timing
+        const cd = c.cruise1 - c.t0;
+        const t = c.t0 + (ln.delay ?? Math.min(0.7, 0.1 * cd));
+        if (tuneHere.some((p) => t > p.t0 - 1 && t < p.t1 + 0.3)) continue; // a tune is sounding: it is the melody
+        items.push({ ln, c, t });
+      }
     // fragments end before a tune begins (the tune is the line they lead into)
     for (const p of tuneHere) items.push({ wall: true, t: p.t0 });
     items.sort((a, b) => a.t - b.t);
@@ -678,7 +746,7 @@ function realizeLines(sections, total, tunes = { phrases: [], failed: [] }) {
 function emitLines(sections, phrases, events) {
   for (const p of phrases) {
     const s = sections[p.sec];
-    const rng = new Rng(`four-light-hours/line/${p.world}/${p.name}/${p.t0.toFixed(2)}/${p.inst}`);
+    const rng = new Rng(`four-light-hours/line/${p.world}/${p.name}/${p.t0.toFixed(2)}/${p.inst}${SALT}`);
     const emit = makeEmitter(events, s);
     const ln = p.line;
     const Ly = s.W.layers;
@@ -710,7 +778,15 @@ function emitLines(sections, phrases, events) {
           while (lb < 38) lb += 12;
           const cd = c.cruise1 - c.t0;
           emit({ type: 'piano', t: c.t0 - 0.02, midi: lb, vel: pv * 0.4, ring: Math.min(8, cd + 0.4), pan: -0.06 });
-          emit({ type: 'piano', t: c.t0 + Math.min(0.45, 0.12 * cd), midi: vAt(c, 1), vel: pv * 0.26, ring: Math.min(6, cd + 0.3), pan: -0.05 });
+          const nb = Math.round(cd / p.beat);
+          if (nb >= 6 && !(p.elastic && p.elastic.has(k))) {
+            // a slow rocking figure under a long bar: bass, then the chord's inner voices every two beats
+            const bt = cd / nb;
+            [[2, vAt(c, 1), 0.24], [4, vAt(c, 2), 0.25], [6, vAt(c, 1), 0.2]].forEach(([b, m, vv]) => {
+              if (b * bt > cd - 0.6 || m <= lb) return;
+              emit({ type: 'piano', t: c.t0 + b * bt + rng.gauss() * 0.01, midi: m, vel: pv * vv * rng.range(0.9, 1.05), ring: Math.min(5, cd - b * bt + 0.4), pan: -0.05 });
+            });
+          } else emit({ type: 'piano', t: c.t0 + Math.min(0.45, 0.12 * cd), midi: vAt(c, 1), vel: pv * 0.26, ring: Math.min(6, cd + 0.3), pan: -0.05 });
         });
       } else if (ln.lh && p.c.voicing) {
         // left hand: the bass an octave up, and a soft inner voice
@@ -737,7 +813,9 @@ function emitLines(sections, phrases, events) {
       });
     } else if (p.inst === 'bow') {
       // the cello: legato bowing (each note overlaps the next by a bow change), seated a little left of centre
-      p.ev.forEach((n) => emit({ type: 'bow', t: n.t - 0.05, dur: n.dur + 0.1, midi: n.midi, attack: clamp(0.3 * n.dur, 0.12, 0.35), release: 0.9, vel: 0.95 * n.acc * v, pan: ln.pan ?? -0.22, seed: rng.int(0, 1e9), motif: true, lead: true }));
+      // (`strings`: a desk of players on the tune, slower into each note, spread a little either side)
+      const ens = ln.inst === 'strings';
+      p.ev.forEach((n, i) => emit({ type: 'bow', t: n.t - (ens ? 0.09 : 0.05), dur: n.dur + (ens ? 0.25 : 0.1), midi: n.midi, attack: ens ? clamp(0.35 * n.dur, 0.2, 0.6) : clamp(0.3 * n.dur, 0.12, 0.35), release: ens ? 1.6 : 0.9, vel: (ens ? 0.8 : 0.95) * n.acc * v, pan: ln.pan ?? (ens ? (i % 2 ? 0.18 : -0.12) : -0.22), ens, seed: rng.int(0, 1e9), motif: true, lead: true }));
     } else if (p.inst === 'brass') {
       // horns: a real horn speaks in ~0.1 s; legato (each note overlaps the next a little), own un-ducked lead bus
       const base = (Ly.brass ? Ly.brass.vel : 0.85) * 1.7 * v * (theme ? 1 : 0.9);
@@ -810,7 +888,7 @@ function genBrass(S, P) {
     const notes = [lb, vAt(c, 0) - 12, vAt(c, 1) - 12, vAt(c, 2) - 12].filter((m) => m >= 33);
     const uniq = [...new Set(notes)].sort((a, b) => a - b);
     uniq.forEach((m, i) =>
-      emit({ type: 'brass', t: c.t0 + i * 0.12, dur: Math.max(1.5, cd - i * 0.12), midi: m, attack: clamp(0.45 * (c.cruise1 - c.t0), 1.5, 5), release: 4.5, vel: P.vel * (i === 0 ? 1 : 0.75) * rng.range(0.92, 1.0), bright: P.bright * (0.85 + 0.1 * i), pan: m < 50 ? 0 : [-0.1, -0.35, 0.35, 0.1][i % 4] })
+      emit({ type: 'brass', t: c.t0 + i * 0.12, dur: Math.max(1.5, cd - i * 0.12), midi: m, attack: c.pivot ? Math.min(0.7, 0.4 * cd) : clamp(0.45 * (c.cruise1 - c.t0), 1.5, 5), release: 4.5, vel: P.vel * (i === 0 ? 1 : 0.75) * rng.range(0.92, 1.0), bright: P.bright * (0.85 + 0.1 * i), pan: m < 50 ? 0 : [-0.1, -0.35, 0.35, 0.1][i % 4] })
     );
   }
 }
@@ -914,7 +992,7 @@ function genWhoosh(S, P) {
 
 function generateSection(sec, chords, events, cueTimes = {}, phrases = []) {
   const W = sec.W;
-  const rng = new Rng(`four-light-hours/${sec.world}/${sec.index}`);
+  const rng = new Rng(`four-light-hours/${sec.world}/${sec.index}${SALT}`);
   const emit = makeEmitter(events, sec);
   const S = { sec, chords, rng, emit, phrases, cueTimes };
   const Ly = W.layers;
@@ -1030,6 +1108,7 @@ function planLegs(sections) {
     const ap = A.W.approach || {};
     w.gesture = GESTURES[ap.gesture] ? ap.gesture : 'riser';
     w.inst = ap.inst;
+    w.gain = ap.gain ?? 1; // the gesture's own scale for this leg (a compositional choice, not a calibration)
     w.mv = clamp(warpReach(w, 0.1), s.cruiseEnd, w.ta - 1);
     const specs = ap.chords || [];
     // the harmony starts to move as the departure begins (the turn toward the next world), not only once the
@@ -1073,7 +1152,7 @@ function generateWarp(w, idx, sections, events, lanes) {
   if (w.peak >= 0.2) {
     const dur = (w.leg ? w.ta : w.c0 + (w.curve.length - 1) / w.hz) - w.ws;
     // a warp that carries us to no new world (a camera move inside one, e.g. Saturn -> Titan) is a cruise swell
-    emit({ type: 'riser', t: w.ws, dur, curve: w.curve, c0: w.c0, hz: w.hz, peak: w.peak, wp: w.wp, midi: fromTonic - 12, toMidi: toTonic - 12, vel: GS.riser * (0.85 + 0.15 * w.peak) * (arriving ? 1 : 0.5) * (w.gesture === 'streak' ? (w.inst === 'pluck' ? 1.25 : 0.7) : 1), gesture: w.gesture || 'cruise', ...shape });
+    emit({ type: 'riser', t: w.ws, dur, curve: w.curve, c0: w.c0, hz: w.hz, peak: w.peak, wp: w.wp, midi: fromTonic - 12, toMidi: toTonic - 12, vel: GS.riser * (w.gain ?? 1) * (0.85 + 0.15 * w.peak) * (arriving ? 1 : 0.5) * (w.gesture === 'streak' ? (w.inst === 'pluck' ? 1.25 : 0.7) : 1), gesture: w.gesture || 'cruise', ...shape });
   }
   // star-streak grains: density and brightness follow the (effective) warp
   for (let i = 0; i < w.curve.length - 1; i++) {
@@ -1089,7 +1168,7 @@ function generateWarp(w, idx, sections, events, lanes) {
   if (!arriving || !w.leg) return;
   const piv = w.pivots || [];
   const mv = w.mv ?? w.ws;
-  const lvl0 = Math.sqrt(lanes.level[li] * pre); // the departing music: its fader and what it has sounding
+  const lvl0 = Math.sqrt(lanes.level[li] * pre) * (w.gain ?? 1); // the departing music: its fader and what it has sounding
   if (w.gesture === 'hush') {
     // one sustained high tone: the highest pitch class the pivots and the arriving chord share (else the arriving
     // chord's fifth), placed high, as the music under it falls away
@@ -1181,7 +1260,7 @@ function generateAccents(cueEvents, sections, events, phrases = []) {
       phrases.push({ t0: seed[0].t, t1: seed[1].t + seed[1].dur, notes: seed.map((n) => n.midi), lo: seed[0].midi, hi: seed[1].midi, ev: seed, inst: 'bell', role: 'frag', weight: 0, name: 'SEED', chord: ch.chord.name, world: sec.world, sec: sec.index, line: {} });
       seed.forEach((n) => emit({ type: 'bell', t: n.t, midi: n.midi, vel: 0.42 * n.acc, ratio: 2, index: 0.7, decay: 8, pan: 0.06, motif: true }));
       emit({ type: 'sub', t: c.t, dur: 5, midi: 38, attack: 3, release: 6, vel: 0.3 });
-    } else if (kind === 'bloom') {
+    } else if (kind === 'bloom' || kind === 'paleDot') {
       const up = tones(Math.max(76, motifLo + 13), 100);
       arp(up.filter((_, i) => i % 2 === 0).slice(0, 5), c.t, 0.16, 0.2);
       const hiVox = Math.min(74, motifLo - 3);
@@ -1206,8 +1285,9 @@ function generateAccents(cueEvents, sections, events, phrases = []) {
       arp(tones(81, 100).reverse().slice(0, 6), c.t + 0.2, 0.19, 0.3, 'bell', 6);
     } else if (kind === 'lonely') {
       emit({ type: 'bell', t: c.t + 0.5, midi: tones(78, 86)[0] || 78, vel: 0.3, ratio: 2, index: 0.6, decay: 9, pan: 0.2 });
-    } else if (kind === 'paleDot') {
-      // one pale blue pixel: a single high, very quiet tone after the motif begins
+    }
+    if (kind === 'paleDot') {
+      // one pale blue pixel: a single high, very quiet tone after the theme begins
       emit({ type: 'glass', t: c.t + 3.2, midi: 95, vel: 0.15, decay: 10, pan: 0.15 });
     }
   });
@@ -1317,8 +1397,26 @@ function buildLanes(sections, duration, cues, warps, phrases = []) {
   // arrival bloom: +3 dB rising in ~1 s from the moment a new world is framed, relaxing over ~9 s, so each
   // reveal is the loudness peak of its leg (the riser is scaled below it)
   const arrivals = sections.filter((s) => s.arrive).map((s) => s.arrive.ta);
-  const swells = [];
-  for (const s of sections) for (const [cue, db] of Object.entries(s.W.swell || {})) { const e = (cues.events || []).find((x) => x.id === cue); if (e && e.t >= s.t0 && e.t < s.t1) swells.push([e.t, db]); }
+  // a world's own cue inside its section ('arrive' = the moment the world is framed)
+  const cueIn = (s, cue) => {
+    if (cue === 'arrive') return s.arrive ? s.t0 : undefined;
+    const e = (cues.events || []).find((x) => x.id === cue && x.t >= s.t0 && x.t < s.t1);
+    return e ? e.t : undefined;
+  };
+  const swells = [],
+    quiets = [];
+  for (const s of sections) {
+    for (const [cue, db] of Object.entries(s.W.swell || {})) {
+      const t = cueIn(s, cue);
+      if (t !== undefined) swells.push([t, db]);
+    }
+    // the quiet before an anchor (worlds.js `quiet: { cue: [dB, seconds] }`): the music draws back for the last
+    // seconds before it, so the anchor rises out of a real hush
+    for (const [cue, [db, lead]] of Object.entries(s.W.quiet || {})) {
+      const t = cueIn(s, cue);
+      if (t !== undefined && t - lead - 2 > s.t0) quiets.push([t, db, lead]);
+    }
+  }
   const swellDb = (t) => {
     let b = 0;
     for (const [tc, db] of swells) {
@@ -1326,7 +1424,20 @@ function buildLanes(sections, duration, cues, warps, phrases = []) {
       if (x < -2 || x > 30) continue;
       b = Math.max(b, db * smooth((x + 2) / 3.5) * (x > 9 ? Math.exp(-(x - 9) / 5) : 1));
     }
-    return b;
+    // a long tune breathes: the level rises with it toward its peak bars and relaxes at its cadence
+    for (const p of phrases) {
+      const db = p.tune && !p.counter && !p.duet && p.line ? p.line.swell : 0;
+      if (!db || t < p.t0 - 1 || t > p.t1 + 6) continue;
+      const u = (t - p.t0) / Math.max(1, p.t1 - p.t0);
+      b = Math.max(b, db * (0.35 + 0.65 * smooth((u - 0.15) / 0.4)) * smooth((t - p.t0 + 1) / 2) * (1 - 0.6 * smooth((u - 0.88) / 0.3)) * (t > p.t1 ? Math.exp(-(t - p.t1) / 3) : 1));
+    }
+    let q = 0;
+    for (const [tc, db, lead] of quiets) {
+      const x = t - tc;
+      if (x < -lead - 2.5 || x > 0.4) continue;
+      q = Math.min(q, db * smooth((x + lead + 2.5) / 2.5) * (1 - smooth((x + 0.7) / 1.0)));
+    }
+    return b + q;
   };
   const bloomDb = (t) => {
     let b = 0;
@@ -1417,7 +1528,7 @@ function registerFor(s, c, phrases) {
     const tonal = p.inst === 'bell' || p.inst === 'glass';
     const here = p.ev.filter((n) => n.t < b && n.t + n.dur + 0.5 > a && !n.app).map((n) => n.midi);
     if (!here.length) continue;
-    if (p.counter) {
+    if (p.counter || (p.line && p.line.inner) || (p.duet && p.tune && p.line && p.line.oct)) {
       for (const m of here) inner.add(m);
       continue;
     }
@@ -1541,7 +1652,8 @@ function registerStats(sections, events) {
 
 // ------------------------------------------------------------------------------------------- compose
 // cues = { hz, warp, fade, intensity?, arrival?, events?: [{ id, t, dur }] } sampled from director.evaluate()
-export function compose({ chapters, duration, cues }) {
+export function compose({ chapters, duration, cues }, opts = {}) {
+  SALT = opts.salt || '';
   const warps = findWarps(cues);
   const sections = buildSections(chapters, duration, warps);
   sections.forEach((s, i) => (s.index = i));
@@ -1552,15 +1664,15 @@ export function compose({ chapters, duration, cues }) {
   let prevChord = null;
   for (let i = 0; i < sections.length; i++) {
     const s = sections[i];
-    s.chords = chordTimeline(s, prevChord, sections[i + 1], i === sections.length - 1, cueTimes);
+    s.chords = chordTimeline(s, prevChord, sections[i + 1], i === sections.length - 1, cueTimes, opts);
     prevChord = s.chords[s.chords.length - 1].chord;
   }
   // the legs: gestures, and the arriving world's approach chords (pivots) laid into each departure
   planLegs(sections);
   // 2. the melody (it depends only on the chord timing), 3. one continuous voice-led line through the whole
   // film that makes room for it
-  const tunes = realizeTunes(sections);
-  const phrases = [...tunes.phrases, ...realizeLines(sections, duration + TAIL, tunes)].sort((a, b) => a.t0 - b.t0);
+  const tunes = opts.explore ? { phrases: [], failed: [] } : realizeTunes(sections);
+  const phrases = [...tunes.phrases, ...realizeLines(sections, duration + TAIL, tunes, opts)].sort((a, b) => a.t0 - b.t0);
   let prev = [45, 50, 57, 62, 64]; // A2 D3 A3 D4 E4: the open fifth the film begins on
   for (const s of sections)
     s.chords.forEach((c, k) => {
@@ -1656,4 +1768,30 @@ export function fallbackTimeline(order) {
     if (lt >= HOLD && !last) warp[i] = Math.sin(Math.PI * ((lt - HOLD) / TRAVEL));
   }
   return { chapters, duration, cues: { hz, warp, fade } };
+}
+
+// ------------------------------------------------------------------------------------------- explore beds
+// An explore bed (score.js setExplore): one world's own music with no film to follow. The world's progression
+// is laid out twice over ~70-130 s with its layers, lanes and register exactly as in its chapter, but no tunes, no
+// legs, no arrival; only a sparse fragment of the themes now and then. `cycle` salts every seeded choice, so each
+// pass of a bed is a new variation (the engine crossfades from one to the next: explore.js).
+const EXPLORE_ALIAS = { asteroids: 'belt', io: 'jupiter', europa: 'jupiter', ganymede: 'jupiter', callisto: 'jupiter', phobos: 'mars', deimos: 'mars' };
+export function exploreWorld(id) {
+  const k = String(id || '').toLowerCase();
+  const w = EXPLORE_ALIAS[k] || k;
+  return WORLDS[w] && w !== 'intro' && w !== 'finale' ? w : 'transit'; // unknown: a neutral deep-space bed
+}
+export function composeExplore(id, cycle = 0) {
+  const world = exploreWorld(id);
+  const W = WORLDS[world];
+  const n = W.prog.length;
+  const L = clamp((n >= 3 ? 2 * n - 1 : 2 * Math.max(1, n)) * W.chordDur, 72, 132);
+  const hz = 10,
+    N = Math.ceil(L * hz) + 1;
+  const plan = compose(
+    { chapters: [{ id: world, body: world, title: world, t0: 0, t1: L }], duration: L, cues: { hz, warp: new Float32Array(N), fade: new Float32Array(N), intensity: new Float32Array(N).fill(0.5), arrival: null, departure: null, events: [] } },
+    { explore: true, salt: `/explore/${cycle}` }
+  );
+  plan.explore = { id: String(id), world, cycle, loop: L };
+  return plan;
 }

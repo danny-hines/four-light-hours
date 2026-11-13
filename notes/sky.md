@@ -1,10 +1,108 @@
 # sky — notes
 
 Owner of `src/sky/*` and `assets/sky/*` (+ the build scripts `assets-src/scripts/build_milkyway.py`,
-`build_nebulae.py`, `nebula_shapes.py`). Assets (unchanged in wave 2): 338 KB total (stars.bin 146 KB, dust.webp 149 KB, milkyway.webp
+`build_nebulae.py`, `nebula_shapes.py`). Assets (unchanged in waves 2-3): 348 KB total (stars.bin 146 KB, dust.webp 149 KB, milkyway.webp
 17 KB, nebulae.webp 15 KB, json 12 KB), under the 0.4 MB cap.
 
-## What exists
+## Wave 3 (current state) — what changed and why
+
+Goal of the wave: the sky is the whole image in the cold open and in every transit; it was near-black with a thin
+sprinkle of equal dots and a grey-brown, foggy Milky Way. Files: `sky.js`, `shaders.js`, `field.js`, new `tiles.js`.
+No asset changed (348 KB).
+
+- **Photographic star response** (`MAG_PIVOT 2.5`, `MAG_GAMMA 0.66`, `K 95 -> 300`): fluxes fainter than V 2.5 are
+  compressed (flux^0.66), so the deep field shows while the bright stars do not burn out; brightness at the bright
+  end turns into image size (`GROW_P 0.42`) and a larger, more saturated halo (`HALO_F 0.14`, `HALO_A 4.5`,
+  `HALO_SAT 1.5`: the glow keeps the star's colour where the core clips). Chroma holds to fainter stars (exponent
+  0.35 -> 0.2). Positions and magnitudes of the catalogue stars are untouched; only the tone curve changed.
+- **Deep field: 1.3 M / 650 k / 300 k procedural stars to V 12.3 / 11.7 / 11.0** (was 400 k to 10.6), same
+  statistics as before (N(<m) ~ 10^0.42m, placed by the unextincted starlight, dimmed/reddened by the dust), with the
+  plane-to-pole density contrast flattened (`FIELD_DENS 0.55`: in the star clouds the Milky Way shader's grain
+  carries the crowding). The field is sorted into 96 sky patches (equal-angle cube faces x 4 x 4), each its own
+  instanced mesh sharing ONE material, switched on per frame only if it can touch the view (aberration-aware), so
+  only ~8-15 % of the stars are submitted. Directions are normalised int16, magnitude/temperature bytes (8 bytes per
+  star). Star quads now end where the image falls below `CUT` (faint stars: ~3 px quads; halo skipped) — fill cost
+  per star is a fraction of what it was.
+- **Milky Way grain = star-dust tile** (`tiles.js: makeStarTile`, 1024^2, generated at start-up in ~0.1 s, fixed
+  seed): a dense random field of point stars with Pareto fluxes, mean 1 at every mip level, mapped on an equal-angle
+  cube in Galactic coordinates in octaves a factor 2 apart. The octave whose texel matches the pixel is a grain of
+  individual faint stars, coarser ones clump the star clouds, a minified tile is exactly the smooth light. Replaces
+  the 7-level 3x3x3 hash lattice + simplex mottle + Poisson grain (27 hash cells x 7 levels per pixel): filtered by
+  construction (no twinkle), and ~4x cheaper.
+- **Dust filaments = noise tile** (`makeNoiseTile`, 512^2: fBm + ridged multifractal): two layers in (l, b),
+  stretched along the plane, the second sheared, added to ln tau where the IRAS column has dust; the tile's fBm also
+  warps the dust lookup (ragged outlines). Replaces the six-axis anisotropic simplex streak noise (up to 30 simplex
+  evaluations per pixel) and the 4-tap gradient. The far-IR map still decides WHERE the dust is (real Great Rift,
+  Pipe, Coalsack, Aquila rift); the tile only breaks its soft edges into streamers.
+- **Colour and bulge**: `SAT_MW 0.6 -> 0.9`, `RED_K 1.3` (dust reddens the light behind it: brown/orange lane edges),
+  `T_BULGE 4700`, `T_DISK 7600`, `BULGE_LIFT 1.5` (the bulge population outshines the disk: Sagittarius/Scutum are
+  the brightest, warm-cream diffuse light; the outer plane is cooler and fainter). A shoulder (`SHOULDER 1.6`) keeps
+  the brightest star clouds from clipping at any shot gain/exposure. Bright sprite nebulae x1.5 (`NEB`: Lagoon,
+  Trifid, Carina, M42 read as small pink glints), galaxies x1.3 (`GAL`: LMC, SMC, M31), and they take the grain.
+- **Detail gate** (`GATE`): filaments and grain are computed only where the displayed diffuse light exceeds ~0.001
+  (most of the sky away from the plane, and all of it under a sunlit-planet exposure, takes the cheap path).
+- **Adaptation to sunlit bodies** (`ADAPT 12`, `ADAPT_MIN 0.3`): sky gain x 1 / (1 + 12 x lit share of the frame),
+  from the projected, phase-weighted discs of planets, moons and Saturn's rings (pure function of the frame). Empty
+  transits keep the full dark-adapted sky; a planet filling the frame gets x0.3. This is on top of the director's
+  `skyGain` track, which was authored for the old, 3x fainter star calibration.
+- **Warp**: streaks have a tapered tail (2.5 t^1.5, energy conserved) and a tighter head; bright stars grow less
+  and stretch instead; the faint field thins with warp (`WARP_DIM 0.5` mag per mag below V 6) so the forward sky is
+  separate radiating lines, not a blizzard (aberration crowds ~5x the stars ahead and Doppler-brightens them).
+  Aberration, Doppler colour (blue ahead / amber behind), patch culling under aberration all as before.
+
+Measured (Apple M5 Pro, headless Chrome/Metal, `only=sky,post,director`, render + gl.finish, min of 20; the GPU was
+shared with other builders, so +-30 %):
+
+| frame | before 1600x900 | after 1600x900 | before 3200x1800 | after 3200x1800 |
+| --- | --- | --- | --- | --- |
+| t=8 cold open | 12.5 ms | 12.6 | 24.1 | 7.8 - 13.4 |
+| t=96 transit | 14.5 | 10.1 | 28.7 | 9.9 - 13.3 |
+| t=216 warp | 15.1 | 11.3 | (n/a) | 16.1 - 22.8 |
+| t=330 | 12.7 | 9.3 | (n/a) | 11.7 - 17.9 |
+
+(Ranges = two runs, the lower with a quieter GPU. At 1600x900 the fixed per-frame cost dominates; the 3200x1800
+columns show the shader cost. Post alone: 2.5 / 6.6 / 8.2 ms at 3200x1800.) `perf_probe --t 8,96,216,330`: play avg 16.67 ms (vsync) at all four
+after; before 32 / 18 / 18 / 17. Shader compile: sky 0 ms in `shader_cost.mjs --q "only=sky,post"` (two programs:
+milkyway, stars; the 96 field patches share the star program). `perf_probe --q "warm=1&only=sky,post,director"`:
+cold frames 7-15 ms. Start-up CPU: field 0.8 s (1.3 M stars), tiles 0.14 s. GPU memory: ~10 MB star buffers, 5.6 MB
+star tile, 1.4 MB noise tile.
+No-twinkle check: 6 frames panned 0.2 px apart at the galactic centre (fov 44): total light constant to 0.15 %, 7x7
+box sums around 400 star peaks vary 0.8 % (median) / 2.9 % (p95).
+
+Shots: before `shots/sky/base/` (film_t*.png, sheet.png, gc.png, orion.png, cyg.png, pole.png), after
+`shots/sky/film_t*.png`, `film_sheet.png`, `gc.png`, `orion.png`, `planets_t*.png`; iterations `shots/sky/it/`.
+
+### Known gaps after wave 3
+
+- Transits that look away from the Galactic plane (t ~ 96, 162, 224-230) are a dense, coloured star field with no
+  Milky Way in frame — rich, but the structure depends on where the director points the camera.
+- The star-cloud grain at fov < ~15 is a uniform 'sand' (no cluster knots); filament tiles repeat 8x around the
+  plane (not noticeable in film framings; a fov > 100 pan along the plane could show it).
+- The filaments are statistical: stretched along the plane, not along each cloud's own contours (the old contour
+  tracing was the single most expensive thing in the shader).
+- Sirius/Canopus-class stars are soft white blobs (large Gaussian core + halo); no diffraction spikes (post's
+  business, and arguably wrong for a 'naked camera').
+- Warp frames: the bluish veil and the smear of the Milky Way come from post's radial blur + warp glow.
+- No zodiacal light / gegenschein. Bulge still analytic (S_bg layer clipped at radMax; asset rebuild not possible
+  here, the raw DIRBE/IRAS downloads are not in the repo).
+
+### Requests (wave 3)
+
+- **Director:** the `sky` track was tuned for the old calibration. With the adaptation in the sky module the film
+  balances as is, but the transits would take more: `legCut(... sky: [x, 0.85-0.9])` -> 1.0-1.15 on the planet-less
+  side of each leg, and hold the cold open's 1.15 a little longer (it starts fading at t=9 while the title is up).
+  Transit framing: where the choice is free, keep some of the Galactic plane in frame (t=96 and t=162 look at the
+  emptiest part of the sky). If you would rather own the planet/sky balance entirely, set `skyCal=ADAPT:0` (or ask
+  for `CAL.ADAPT = 0`) and drop the track by ~x0.35 in planet close-ups.
+- **Post:** during warp, less radial blur / warp glow on diffuse light (`WARP_GLOW`, `WARP_BLOOM`): the Milky Way
+  turns into a blue-grey veil at warp 1 (t=258, 324, 348); scale lateral CA down with `shot.warp`.
+- **Asteroids:** the grey belt ring still fogs `view=body` sky shots; judge with `only=sky,post`.
+
+## Earlier waves (data model, still valid unless superseded above)
+
+Superseded in wave 3: the lattice ladder ('Resolved star clouds'), the anisotropic streak noise ('Dust detail'),
+the faint-field counts, the PSF numbers, the cost figures and the `skyCal` keys RES_*, REM_K, MOTTLE, DUST, WARP,
+ANISO, RIDGE, LEVEL_K, EDGE_K (gone). New keys: see `CAL0` in `src/sky/sky.js`.
 
 - **Stars (BSC5, 9096)** from `assets/sky/stars.bin`: true J2000 positions (`radecToThree`), flux = 10^(-0.4 V),
   colour = blackbody at T_eff(B-V) (Ballesteros 2012) through CIE 1931 CMFs -> linear sRGB, white-balanced to 6000 K

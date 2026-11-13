@@ -1,4 +1,39 @@
-# Handoff: where the build stands and how to resume
+# Handoff: where the build stands
+
+# Wave 3 (2026-11-13): the integration pass
+
+Wave 2 was not resumed as a gauntlet. Instead one lead session ran five builders in parallel (sun, sky, audio,
+jupiter + saturn, earth + venus), did the integration work itself, and judged the result on the film's own frames.
+What changed, by area (details in each `notes/<piece>.md` under "Wave 3" and in the code comments):
+
+- **Playback** (`src/main.js`): the drawing buffer follows a megapixel budget that adapts to the measured frame
+  rate (levels x1.4 apart, two bad 0.8 s windows to step down, probes back up after ~6 clean seconds, a failed probe
+  backs off). On an Apple M5 Pro the film holds 60 fps at 1600x900 everywhere and settles between 1 and 8 MP in a
+  Retina fullscreen window depending on the shot. `tools/checks/adapt_check.mjs` and `start_check.mjs` measure it.
+- **HUD stutter**: the light meter's frame readback stalled the main thread whenever the GPU was the bottleneck (up
+  to 80 ms every ~9 frames in Mercury's low pass). Playback now uses the analytic estimate; capture stills still
+  read the frame back (`meter=0|1`).
+- **Live camera** (`src/ui/explore.js`): drag-to-look-around during the film, and Explore mode (orbit any of 16
+  worlds, exposure chosen from the camera's position, per-world closest approach). The score gets
+  `setExplore(worldId | null)`. `tools/checks/explore_check.mjs` drives it end to end.
+- **Finale** (`src/journey/film.js`, `src/render/post*`, `src/render/glints.js`): the pale-blue-dot frame is rolled
+  so the scattered-light beam passes through Earth, the beam is a fan of tinted bands (Voyager's frame), the point
+  is wider and brighter and no other point may out-shine it, the reticle lets go of it before the credits, and the
+  beat is 2 s longer. Film length 434.7 s.
+- **Sky levels**: the director's `sky` track was re-keyed for the new sky calibration (Venus crescent, belt,
+  Earthrise, finale map).
+- **Web build**: `npm run build:web` writes `dist/` (static site, first-paint card, hashed bundle, social card from
+  `tools/web/og.mjs`). The single-file `npm run build` still works.
+- **Tools** now run on macOS and Linux as well as Windows (Chrome path, ANGLE backend, contact-sheet assembly).
+
+Not done, in rough order of value: the Windows/FXC compile-budget re-measurement for the reworked shaders (only
+Metal was available); the Jupiter skim nearer the terminator so its new cloud shadows show; the Earth approach
+azimuth so the ocean glint lands on open water; Mercury's raymarch cost (the heaviest shot per pixel on Apple
+GPUs); phone-class GPUs are untested.
+
+---------------------------------------------------------------------------------------------------------------
+
+# Earlier: the wave-2 pause
 
 Written 2026-11-07, when the run was paused at about 93% of the usage budget.
 

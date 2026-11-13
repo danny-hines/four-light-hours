@@ -399,46 +399,83 @@ export const THEMES = {
 // Notation: `Pitch:beats` with `^` (the phrase's peak, accent 1.0) or `-` (light, 0.7), `*` (a passing note or an
 // appoggiatura: allowed to rub against the chord), `r:beats` a rest, `|` a bar line (checked: a note may tie over
 // it). Bars are `bars` beats long; parts share the bars (the melody and its counter-melody).
-//   HOME     Earth arrival: A spun out over Dmaj9 - Gmaj9 (antecedent, open on the 9th) - Bm9 - Gm6/9 (consequent:
-//            the motif a third higher to the theme's peak B5, then the night side's minor iv, ending open on A4
-//            so the sunrise resolves it); a cello answers from bar 3, contrary to the tune
-//   RISE     Earthrise: the appoggiatura form of A (the 11th leaning on the 3rd) carried on through the cadence
-//   ECLIPSE  Saturn: A_EXT sung by the solo soprano, then a second phrase that climbs through C#m11 to C#6 over
-//            Amaj9#11 (the highest note of the film's melody) and settles on the dominant's root: unresolved,
-//            longing, as the Sun comes back
-//   FINALE   the theme returns over IV (the resolution withheld), the bars shortening toward the V (harmonic
-//            rhythm speeding up: 6, 4, 3, 3 beats), the motif whole and broad on the pale blue dot (V -> I), then
-//            the Sun's raised fourth (C#5 over Gmaj9#11) and home; the cello under it all
+//
+// THE HOME THEME. One melody, heard whole four times. It is a sentence: the pale blue motif (a rising sixth that
+// falls home by step, 5 - 3' - 2' - 1'), the motif again a step higher over ii, again a fourth higher over IV to
+// the peak, then the whole scale falling from the peak through V to the tonic:
+//     (A4) F#5 E5 D5 . (B4) G5 F#5 E5 . (D5) B5 A5 G5 . (B5) A5 G5 F#5 E5 | D5
+//          I               ii              IV              V9              I
+//   HOME     Earth arrival, complete: felt piano, a cello in contrary motion from bar 2 (parallel sixths under the
+//            cadence), the strings taking the tune from the peak; it resolves on the sunrise over the limb
+//   RISE     Earthrise, developed: the head, then straight to the peak (the middle step left out), the voice's
+//            first full line; left open on D/E as we leave home
+//   ECLIPSE  Saturn, in E, the solo soprano with glass an octave above: head, peak (C#6, the highest note of the
+//            film's melody), the falling scale, a deceptive cadence (vi) and an echo of the fall, settling on the 4th
+//   FINALE_A the pull-back, intimate: the first two steps of the theme alone on the piano, slower, over IV and ii
+//            (the tonic withheld)
+//   FINALE   the pale blue dot: the theme whole and transformed (piano, voice, strings, horn an octave below), its
+//            upbeat on the dominant so the sixth lands exactly on the dot; head, peak, the falling scale, home
+// `@-1` starts a part one beat before its first bar (an upbeat over the chord before); `elastic` bars absorb
+// whatever time a cut leaves over (a final held note), so the tune's tempo never depends on it.
+//   NEPTUNE  the theme alone and far from home: its first step in B minor (the sixth now minor), then on G, where it
+//            stops on the raised fourth, unresolved; a high piano over the deep pad, slow, with long silences
+//   MARS     the theme's second step (B G F# E: the motif in E minor) spun into an 8-bar Dorian tune on a dry piano,
+//            one bar per chord of the 84 BPM pulse, reaching the Dorian sixth (C#6)
 export const TUNES = {
   HOME: {
-    beat: 0.88,
-    bars: [8, 8, 8, 8],
+    beat: 0.92,
+    bars: [8, 8, 8, 8, 6],
+    elastic: [4],
     parts: {
-      mel: 'r:1 A4:1 F#5:1.5^ E5:.5- D5:2 E5:.5- F#5:.5- A5:1.5 | G5:.5-* F#5:1.5 E5:.5- D5:1 B4:1 A4:2 B4:.5- C#5:.5*- | D5:1 B5:1.5^ A5:.5- F#5:2 E5:.5- F#5:.5- A5:1 F#5:1 | E5:1 D5:1 Bb4:1.5^ A4:3.5 r:1',
-      counter: 'r:8 | r:2 B3:2 A3:1 D4:2 E4:1 | F#4:2 E4:1 D4:2 C#4:1 B3:2 | Bb3:2 D4:2 E4:1 A3:3',
+      mel: 'r:1 A4:1 F#5:2^ E5:1 D5:2 B4:1- | G5:2^ F#5:1 E5:4 D5:1- | B5:2^ A5:1 G5:4 B5:1- | A5:2 G5:1 F#5:2 E5:3 | D5:6',
+      counter: 'r:8 | E3:2 G3:2 B3:3 A3:1 | G3:3 B3:2 D4:3 | C#4:2 B3:2 A3:2 G3:2 | F#3:6',
     },
   },
   RISE: {
-    beat: 0.8,
-    bars: [8, 4, 4],
+    beat: 0.82,
+    bars: [8, 8, 4],
     parts: {
-      mel: 'r:.5 A4:1 G5:.75^* F#5:.75 E5:.5- D5:2.5 E5:1- F#5:1 | A5:2^ F#5:1 E5:1- | D5:1 B4:1- A4:2',
-      counter: 'r:2 F#3:2 A3:2 D4:2 | C#4:2 B3:2 | A3:4',
+      mel: 'r:.5 A4:1 F#5:2^ E5:1 D5:2.5 D5:1- | B5:2.5^ A5:1 G5:3 B5:1.5- | A5:1.5 F#5:.5- E5:2',
+      counter: 'r:2 F#3:3 A3:3 | G3:2 B3:3 D4:3 | D4:2 B3:2',
     },
   },
   ECLIPSE: {
-    beat: 0.95,
-    bars: [8, 6, 8, 6],
+    beat: 0.88,
+    bars: [8, 8, 8, 8, 8],
+    elastic: [4],
     parts: {
-      mel: 'r:.5 B4:1 G#5:1.5^ F#5:.5- G#5:.75 F#5:.75- E5:2.5 F#5:.5- | G#5:1 B5:2^ G#5:1 E5:1- F#5:1 | G#5:.5- B5:.5 C#6:3^ B5:1 G#5:1 E5:1- D#5:1 | E5:1.5 C#5:.5- B4:4',
+      mel: 'r:1 B4:1 G#5:2^ F#5:1 E5:2 E5:1- | C#6:2.5^ B5:1 A5:3.5 C#6:1- | B5:2 A5:1 G#5:2 F#5:3 | E5:3 r:1 G#5:2 F#5:1 E5:1 | C#5:2 B4:6',
+    },
+  },
+  FINALE_A: {
+    beat: 1.0,
+    bars: [8, 8],
+    parts: {
+      mel: 'r:2 A4:1 F#5:2 E5:1 D5:2 | r:1 B4:1 G5:2 F#5:1 E5:3',
     },
   },
   FINALE: {
-    beat: 1.0,
-    bars: [6, 4, 3, 3, 6, 3, 6],
+    beat: 0.8,
+    bars: [8, 6, 6, 8],
+    elastic: [3],
     parts: {
-      mel: 'r:.5 A4:1 F#5:1.5^ E5:.5- D5:2.5 | F#5:1 B5:2^ A5:1 | D5:1 Bb4:2^ | E5:1 D5:.5- B4:1.5 | A4:1.25 F#5:1.75^ E5:.75- D5:2.25 | F#5:1 E5:1- C#5:1 | D5:6',
-      counter: 'G3:3 B3:3 | D4:2 C#4:2 | Bb3:3 | A3:1.5 G3:1.5 | F#3:3 A3:3 | B3:3 | A3:6',
+      mel: '@-1 A4:1 F#5:2^ E5:1 D5:4 D5:1- | B5:2^ A5:1 G5:2 B5:1- | A5:1.5 G5:1 F#5:1.5 E5:2 | D5:8',
+      counter: 'r:2 F#3:3 A3:3 | G3:2 B3:2 D4:2 | C#4:1.5 B3:1 A3:1.5 G3:2 | F#3:8',
+    },
+  },
+  NEPTUNE: {
+    beat: 1.25,
+    bars: [8, 8],
+    parts: {
+      mel: 'r:1.5 F#5:1.5 D6:2.5^ C#6:1 B5:1.5 | r:1.5 G5:1.5 E6:2 D6:1 C#6:2',
+    },
+  },
+  MARS: {
+    beat: 0.714,
+    bars: [4, 4, 4, 4, 4, 4, 4, 4],
+    elastic: [7],
+    parts: {
+      mel: 'r:1 B4:1 G5:1.5^ F#5:.5- | E5:3 E5:1- | B5:1.5^ A5:.5- G5:1 F#5:1 | E5:1.5 C#6:2.5^ | B5:1.5 A5:.5- G5:1.5 E5:.5- | E5:1 F#5:1 A5:2 | B5:2^ A5:.5- F#5:.5- E5:1 | F#5:1 E5:.5- D5:.5- B4:2',
     },
   },
 };
@@ -460,6 +497,11 @@ export function parseTune(name) {
       bar = 0,
       lastOn = 0;
     for (const tok of src.trim().split(/\s+/)) {
+      if (tok[0] === '@') {
+        pos = Number(tok.slice(1)); // an upbeat: the part starts before its first bar
+        lastOn = pos - 1;
+        continue;
+      }
       if (tok === '|') {
         bar++;
         const at = starts[bar];
@@ -477,7 +519,7 @@ export function parseTune(name) {
     if (Math.abs(pos - total) > 1e-6) throw new Error(`tune ${name}.${part}: ${pos} beats, bars sum to ${total}`);
     parts[part] = out;
   }
-  return { beat: T.beat, bars: T.bars.slice(), starts, total, parts };
+  return { beat: T.beat, bars: T.bars.slice(), starts, total, parts, elastic: new Set(T.elastic || []) };
 }
 
 export const themeNotes = (th) => (Array.isArray(th) ? th : th.notes);

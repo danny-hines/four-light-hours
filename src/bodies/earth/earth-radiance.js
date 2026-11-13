@@ -38,6 +38,7 @@ uniform vec3 uSeasonEdge;      // Arctic / Antarctic sea-ice edge latitude, NH s
 uniform float uRc;             // cloud layer radius
 uniform float uAirglow;        // airglow emission scale
 uniform float uDetail;         // quality: 0 = low .. 1 = high
+uniform vec4 uLook;            // clarity, print contrast, saturation, cloud brilliance
 uniform int uDebug;
 uniform sampler2D uDay;
 uniform sampler2D uNight;
@@ -120,7 +121,7 @@ void main() {
   // octaves this keeps that are under a pixel along the foreshortened axis are anti-aliased by the threshold's exact
   // screen-space width in cloudField (with an isotropic width they aliased into rows of horizontal dashes)
   float lx = length(dPcx), ly = length(dPcy);
-  float fpC = max(max(1.25 * sqrt(lx * ly), 0.4 * max(lx, ly)), 1e-7);
+  float fpC = max(max(1.25 * sqrt(lx * ly), 0.72 * max(lx, ly)), 1e-7);
   if (x.cov <= 0.0) { gl_FragColor = uShadowPass == 1 ? vec4(0.0) : vec4(pk2(0.0, 0.0)); return; }
   vec3 day = textureGrad(uDay, uv, gx, gy).rgb;
   float wm = textureGrad(uWater, uv, gx, gy).r;
@@ -270,7 +271,7 @@ void main() {
     // water-leaving reflectance just above the surface (pi Rrs): clear oligotrophic gyres navy (Rrs(443) ~0.008, sRGB
     // channels ~0.0015 / 0.005 / 0.022), productive high-latitude / coastal water greener and dimmer in blue
     float prod = clamp(smoothstep(38.0, 62.0, abs(latD)) * 0.75 + coastal * 0.8 + 0.3 * tn(pb * 6.0).x - 0.1, 0.0, 1.0);
-    vec3 rhoW = mix(vec3(0.0015, 0.0050, 0.0220), vec3(0.0025, 0.0085, 0.0130), prod);
+    vec3 rhoW = mix(vec3(0.0012, 0.0055, 0.0360), vec3(0.0025, 0.0095, 0.0200), prod);   // (blue raised: the gyres read royal blue, not grey-navy)
     // shelves: the sea floor shows through (sand turquoise in the shallowest water)
     rhoW = mix(rhoW, mix(vec3(0.004, 0.016, 0.026), day * 0.42, smoothstep(0.9, 1.0, shelf)), smoothstep(0.6, 0.97, shelf) * (1.0 - seaIce));
     // wind roughness (Cox-Munk slope variance -> GGX alpha): calm water under the subtropical highs (low cloud cover,
@@ -344,17 +345,17 @@ void main() {
         float tanE = dot(sB, pbc) / lt;
         const float HTOP = 9.0 * KM;
         float hh0 = Rcl * Rcl * HTOP;
-        float st = 0.0016;
+        float st = 0.0032;
         float om = zonalRate(asin(clamp(pbc.y, -1.0, 1.0)));
         float dlA = -om * (uFlow.x + uFlow.y) * (0.5 / PI), dlB = -om * (uFlow.x + uFlow.z) * (0.5 / PI);
         for (int k = 0; k < uLoopMax; k++) {
           if (k >= 5) break;
-          float lodq = log2(max(st / CLOUD_TEXEL, 1.0));
+          float lodq = log2(max(st / CLOUD_TEXEL, 1.0)) + 1.5;      // (pre-filtered: bilinear 8-bit texels cast hard specks)
           vec2 uq = dirToUV(normalize(pbc + tS * st));
           float mq = mix(textureLod(uClouds, uq + vec2(dlB, 0.0), lodq).r, textureLod(uClouds, uq + vec2(dlA, 0.0), lodq).r, uFlow.w);
           mq = smoothstep(0.045, 0.9, mq) * iceDamp;
           float hray = hh0 + st * tanE * uRp + 0.5 * st * st * uRp;
-          selfSh = min(selfSh, smoothstep(-0.25, 0.6, (hray - mq * mq * HTOP) / (1.2 * KM)));
+          selfSh = min(selfSh, smoothstep(-1.0, 1.4, (hray - mq * mq * HTOP) / (1.2 * KM)));
           st *= 2.0;
         }
         selfSh = mix(1.0, selfSh, smoothstep(0.35, 0.15, muSc));
@@ -406,9 +407,11 @@ void main() {
   float nightTex = textureGrad(uNight, uv, gx, gy).r;
   float nlt = nightTex * sqrt(nightTex);            // the Black Marble is stretched: ~1.5 restores the range
   float coreK = smoothstep(0.5, 1.0, nightTex);
-  nlt *= 0.6 + 2.6 * coreK * coreK;                 // urban cores 5-10x their suburbs
-  float nltBlur = textureLod(uNight, uv, 4.5).r;
-  gl_FragColor = vec4(cityLights(x.pb, nlt * 0.28, nightTex, fpc) * nightF * (1.0 - water * 0.9), nltBlur * nltBlur * 0.06 * nightF);
+  nlt *= 0.6 + 2.0 * coreK * coreK;                 // urban cores 4-8x their suburbs
+  float nltBlur = textureLod(uNight, uv, 4.5).r, nltHalo = textureLod(uNight, uv, 2.5).r;
+  // lamp light scattered by the boundary-layer haze over a conurbation: a soft sodium-orange halo around the points
+  vec3 halo = vec3(1.0, 0.5, 0.2) * (nltHalo * nltHalo * 0.035 + nltBlur * nltBlur * 0.012);
+  gl_FragColor = vec4((cityLights(x.pb, nlt * 0.34, nightTex, fpc) * (1.0 - water * 0.9) + halo) * nightF, nltBlur * nltBlur * 0.06 * nightF);
 }
 `;
 
@@ -480,7 +483,23 @@ void main() {
     vec3 cityDiff = vec3(1.0, 0.6, 0.3) * Qp.a;
 
     // ---------------- composite: above-cloud air, cloud, below-cloud air, ground
-    vec3 Lsurf = La * PI + Ta * (Lp.rgb + cityDiff * aCl + (1.0 - aCl) * (Lb * PI + Tb * Lg));
+    // PHOTOGRAPHIC LOOK. The physically exact composite reads as a steel-blue, milky disc after the film's neutral
+    // (AgX) display transform: the Rayleigh path radiance over a black ocean is ~3x the water's own radiance. The
+    // Apollo / DSCOVR look - navy oceans, ochre deserts, brilliant cloud - is what colour film's toe and shoulder (or
+    // a Rayleigh-corrected product) did to that signal. So, on the sunlit disc only: (1) keep a share uLook.x of the
+    // path radiance for near-vertical views (full at grazing views: the limb rim, low-orbit horizons and the
+    // twilight arc are untouched), (2) a print-contrast curve about mid-grey (exponent uLook.y; HDR cloud tops rise
+    // above 1 and pick up bloom), (3) a little saturation.
+    float muVg = max(dot(x.N, -rd), 0.0), muSg = dot(x.N, sunDir);
+    float dayW = smoothstep(-0.02, 0.22, muSg);
+    float clr = mix(1.0, mix(uLook.x, 1.0, smoothstep(0.42, 0.06, muVg)), dayW);
+    vec3 Lsurf = clr * La * PI + Ta * (Lp.rgb + cityDiff * aCl + (1.0 - aCl) * (clr * Lb * PI + Tb * Lg));
+    {
+      float lum = dot(Lsurf, vec3(0.2126, 0.7152, 0.0722));
+      float g = pow(clamp(lum / 0.2, 0.02, 12.0), uLook.y - 1.0);
+      vec3 graded = mix(vec3(lum), Lsurf, uLook.z) * g;
+      Lsurf = mix(Lsurf, max(graded, vec3(0.0)), dayW);
+    }
     if (uDebug == 1) Lsurf = La * PI + Ta * Lb * PI;
     if (uDebug == 2) Lsurf = Lg;
     if (uDebug == 3) Lsurf = Lp.rgb;

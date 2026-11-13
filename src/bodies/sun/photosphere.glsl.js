@@ -63,8 +63,11 @@ uniform int uCellN;         // 27: neighbour cells of the granulation power diag
 uniform int uFilN;          // 6: penumbral filament sprites per pixel (2 rows x 3 neighbours)
 uniform int uCores;         // 3: max umbral cores per spot
 uniform float uDebug;
-uniform float uHeroK;       // display contrast exponent of the large-scale luminance (1 outside hero shots)
-uniform float uHeroKs;      // ... and of the granulation-scale fluctuations on top of it
+uniform float uHeroW;       // hero weight (1: the shot is exposed for the Sun and post's hero composite is on)
+uniform vec3 uHeroA;        // hero look: radiance per channel at unit luminance signal (see HERO LOOK in sun.js)
+uniform vec3 uHeroP;        // ... and its exponent per channel (white-gold centre -> gold -> deep orange-red limb)
+uniform vec4 uHeroS;        // x -, y granulation-scale exponent, z large-scale structure / plage visibility, w ceiling
+uniform vec2 uHeroX;        // exposure of the luminance signal, and its large-scale exponent (close views: gentler limb)
 varying vec3 vLocal;
 
 ${SUN_NOISE_GLSL}
@@ -171,7 +174,7 @@ float granuleI(vec4 G, float fpc, float laneVar, float graze, float facing, floa
   float IL = 0.62 + 0.13 * laneVar;
   // sub-granular structure: brighter and darker patches inside each granule
   float sub = res * (0.075 * nA.x + 0.05 * nB.x * (1.0 - smoothstep(0.07, 0.22, fpc)));
-  float dome = mix(0.9, 0.74 + 0.26 * smoothstep(0.1, 0.85, c), res);
+  float dome = mix(0.9, 0.7 + 0.33 * smoothstep(0.08, 0.88, c), res);
   float I = IL + (Ig * dome * (1.0 + sub) - IL) * S;
   // bright rims where the upflow turns over at the granule edge (resolved at mid range and close in)
   float cr = (c - 0.28) / 0.11;
@@ -278,7 +281,9 @@ float sunspots(vec3 n, vec3 V, float mu, float fpU, float t) {
     // penumbral width around the spot: lobed (+-~25 %), and one-sided for rudimentary penumbrae (B.w)
     float aDir = 6.2831853 * hS.x;
     float side = dot(cs, vec2(cos(aDir), sin(aDir)));
-    float pw = max(1.0 + 0.6 * nA.x, 0.35) * mix(1.0, smoothstep(-0.45, 0.65, side), B.w);
+    // (nR: a second, finer angular noise: ragged outline, and the brightness of the filament bundles)
+    vec4 nR = tn4(vec3(cs * 3.4 + hS.zx * 5.0, sd + 3.0));
+    float pw = max(1.0 + 0.85 * nA.x + 0.28 * nR.x, 0.3) * mix(1.0, smoothstep(-0.45, 0.65, side), B.w);
     float sOut = 1.0 + (rp / ru - 1.0) * pw;
     float u = (sU - 1.0) / max(sOut - 1.0, 1e-3);           // 0 at the umbra .. 1 at the mean outer edge
     if (u > 1.3 && um <= 0.0) continue;
@@ -302,7 +307,7 @@ float sunspots(vec3 n, vec3 V, float mu, float fpU, float t) {
     float bnd = mix(hb0, hb1, fs3);
     float bLen = mix(fract(hb0 * 7.7), fract(hb1 * 7.7), fs3);
     float coarseF = 1.0 - smoothstep(0.9, 2.6, fpcF / 4.6);   // (the footprint is the major axis: generous)
-    float sf = 0.55 * (1.0 + coarseF * (0.9 * (bnd - 0.5) - 0.45 * smoothstep(0.3 + 0.6 * bLen, 0.55 + 0.6 * bLen, u)));
+    float sf = 0.55 * (1.0 + coarseF * (1.5 * (bnd - 0.5) - 0.5 * smoothstep(0.3 + 0.6 * bLen, 0.55 + 0.6 * bLen, u)) + 0.9 * nR.y);
     float head = 0.0, tip = 1.0;
     if (fineF > 0.0) {
       float acc = 0.0, cov = 0.0;
@@ -340,7 +345,7 @@ float sunspots(vec3 n, vec3 V, float mu, float fpU, float t) {
     pm = max(pm, um);
     if (pm <= 0.0) continue;
     // penumbral intensity: bright inner penumbra (~0.86 of the quiet Sun) darkening outward (~0.68), filaments +-
-    float Ip = mix(0.86, 0.68, smoothstep(0.0, 1.0, u)) * (0.79 + 0.33 * clamp(sf, 0.0, 1.2));
+    float Ip = mix(0.73, 0.67, smoothstep(0.0, 1.0, u)) * (0.8 + 0.33 * clamp(sf, 0.0, 1.3));
     float fp = pow(max(Ip, 0.05), 0.23);
     // the grains' heads poke into the umbra
     um *= 1.0 - 0.9 * clamp(head * fineF, 0.0, 1.0);
@@ -459,11 +464,18 @@ void main() {
   // meso- (~6-14 Mm) and supergranular (~30 Mm) brightness modulation, ~2.5 % RMS (40 % of it when the
   // granulation is unresolved), and a per-supergranule brightness
   float meso = (0.06 * nM.y + 0.05 * nP1.z + 0.05 * nS.y) * (0.4 + 0.6 * fadeG);
+  // hero look: the disc is alive at every scale. Supergranular cells (brighter network, a little darker cell
+  // interiors) and broad, faint convective swells (~100 Mm) stay visible when the granulation is far below a pixel.
+  vec4 nG = tn4f(ROT1 * pMm * (SN / 105.0) + vec3(2.3, 8.1, 5.5), fpMm * SN / 105.0);
+  float heroLS = uHeroW * uHeroS.z;
+  meso += heroLS * (0.035 * nG.x + 0.02 * nG.y * nP1.x + 0.03 * (network - 0.35) * (1.0 - 0.6 * fadeG) + 0.02 * nS.y);
   mott += 0.015 * nP1.w;
 
   // ---------------------------------------------------------------- faculae
   // facular contrast is ~0 at disc centre and rises toward the limb (hot-wall effect), dropping at the very edge
   float cMu = 0.002 + 1.25 * pow(1.0 - mu, 3.0) * smoothstep(0.0, 0.12, mu);
+  // (hero look: plage around the active regions stays visible on the whole disc, as in a Ca K / G-band picture)
+  cMu += 0.11 * uHeroW * uHeroS.z;
   // faculae: a worm-like bright network around the active regions (ridged noise; the fine worms resolve close up,
   // the coarser ~8 Mm network carries the pattern at full-disc scale, footprint-faded to its mean)
   float wf = fadeBy(fpMm, 2.2);
@@ -503,10 +515,18 @@ void main() {
   // chromaticity: photographic chroma for the large-scale field, colorimetric for the granulation on top of it
   vec3 ch = pow(bL / max(YL, 1e-12), vec3(uChroma)) * (bt * (YL / max(Y, 1e-12)) / max(bL, vec3(1e-12)));
   ch /= dot(ch, LUMW);
-  // hero shots: contrasty white-light rendering of the large-scale luminance (limb darkening, faculae, spots; see
-  // HERO_CONTRAST in sun.js); the granulation keeps a gentler display contrast (the hero tone curve already turns
-  // its luminance swing into a hue swing, the red channel sitting in the shoulder)
+  // physical radiance (planet-exposed shots, where the disc is a blinding white anyway)
   YL = max(YL, 1e-12);
-  vec3 col = uDiscColor * (uGain * pow(YL, uHeroK) * pow(max(Y, 1e-12) / YL, uHeroKs)) * ch;
+  vec3 col = uDiscColor * (uGain * max(Y, 1e-12)) * ch;
+  // hero shots (the Sun is the subject): display-referred. Post shows the disc through its own exposure, an orange
+  // filter and a per-channel tone curve; the look is authored here as a per-channel power ramp of the luminance
+  // signal (incandescent: white-gold where it is hottest, rolling off through gold to deep orange-red at the limb
+  // and in the lanes, near-black umbrae), already inverted through post's chain on the CPU (sun.js).
+  if (uHeroW > 0.0) {
+    float Ls = uHeroX.x * pow(YL, uHeroX.y) * pow(max(Y, 1e-12) / YL, uHeroS.y);
+    Ls = Ls / pow(1.0 + pow(Ls / uHeroS.w, 6.0), 1.0 / 6.0);   // soft ceiling (faculae, hot granules)
+    vec3 hero = min(uHeroA * pow(vec3(Ls), uHeroP), vec3(29000.0));
+    col = mix(col, hero, uHeroW);
+  }
   gl_FragColor = vec4(col * uDiscFade, 1.0);
 }`;

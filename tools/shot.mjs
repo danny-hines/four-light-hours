@@ -88,6 +88,8 @@ async function ensureServer() {
 function findChrome() {
   const candidates = [
     process.env.CHROME_PATH,
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/usr/bin/google-chrome',
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -166,7 +168,7 @@ const launchOpts = (userDataDir) => ({
   userDataDir,
   defaultViewport: { width: W, height: H, deviceScaleFactor: 1 },
   args: [
-    '--use-angle=d3d11',
+    process.platform === 'win32' ? '--use-angle=d3d11' : process.platform === 'darwin' ? '--use-angle=metal' : '--use-angle=default',
     '--enable-gpu',
     '--ignore-gpu-blocklist',
     '--enable-webgl',
@@ -254,17 +256,25 @@ try {
     const rows = Math.ceil(shots.length / cols);
     const sheetPage = await browser.newPage();
     await sheetPage.setViewport({ width: cols * thumbW, height: rows * thumbH });
-    const imgs = shots.map((s) => ({ src: 'data:image/png;base64,' + s.buf.toString('base64'), label: s.label }));
     await sheetPage.setContent('<html><body style="margin:0;background:#000"><canvas id=c></canvas></body></html>');
-    const dataUrl = await sheetPage.evaluate(
-      async (imgs, cols, tw, th, rows) => {
+    await sheetPage.evaluate(
+      (cols, tw, th, rows) => {
         const c = document.getElementById('c');
         c.width = cols * tw;
         c.height = rows * th;
-        const g = c.getContext('2d');
-        for (let i = 0; i < imgs.length; i++) {
+      },
+      cols,
+      thumbW,
+      thumbH,
+      rows
+    );
+    // one image per call: a whole film's worth of PNGs in a single CDP message kills the target
+    for (let i = 0; i < shots.length; i++) {
+      await sheetPage.evaluate(
+        async (src, label, i, cols, tw, th) => {
+          const g = document.getElementById('c').getContext('2d');
           const im = new Image();
-          im.src = imgs[i].src;
+          im.src = src;
           await im.decode();
           const x = (i % cols) * tw,
             y = Math.floor(i / cols) * th;
@@ -273,18 +283,19 @@ try {
           g.fillRect(x, y, 130, 26);
           g.fillStyle = '#fff';
           g.font = '16px monospace';
-          g.fillText(imgs[i].label, x + 6, y + 18);
+          g.fillText(label, x + 6, y + 18);
           g.strokeStyle = '#333';
           g.strokeRect(x + 0.5, y + 0.5, tw - 1, th - 1);
-        }
-        return c.toDataURL('image/png');
-      },
-      imgs,
-      cols,
-      thumbW,
-      thumbH,
-      rows
-    );
+        },
+        'data:image/png;base64,' + Buffer.from(shots[i].buf).toString('base64'),
+        shots[i].label,
+        i,
+        cols,
+        thumbW,
+        thumbH
+      );
+    }
+    const dataUrl = await sheetPage.evaluate(() => document.getElementById('c').toDataURL('image/jpeg', 0.9));
     const out = path.resolve(root, args.sheet);
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, Buffer.from(dataUrl.split(',')[1], 'base64'));

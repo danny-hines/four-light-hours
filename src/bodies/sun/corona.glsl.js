@@ -9,6 +9,11 @@
 // rays (structure that depends on direction only projects to rays after line-of-sight integration).
 // F-corona: dust-scattered light, slightly redder, flattened toward the ecliptic at larger elongations.
 // Chromosphere: optically thick H-alpha layer (source function x (1 - e^-tau)) and an animated spicule forest.
+// Outside views (camera beyond ~1.7 R) are graded like an eclipse composite: the samples are weighted toward the plane
+// of the sky, the fine structure is a sky-plane texture of threads in (position angle, log r) that follows a
+// dipole-like field (fanning from the poles, leaning into the streamers) and drifts slowly outward, the background
+// falls off faster than the streamers, the innermost corona is warm, and post's radial hero gain is undone, so the
+// corona reads the same whether the shot is exposed for it or for the disc.
 // Integration uses the angle substitution s = p tan(a) on a fixed grid (no per-pixel jitter): for power-law
 // densities this is exact up to a constant, so the radial gradient cannot band, and fine rays stay coherent.
 import { NOISE_GLSL } from '../../glsl/noise.js';
@@ -51,6 +56,10 @@ uniform int uNAr;            // active regions (loop bound)
 uniform int uNStrU;          // streamers (loop bound)
 uniform int uSpicN;          // spicule sprites per pixel (rows x neighbours)
 uniform vec3 uKCol;          // K-corona tint
+uniform vec3 uKColIn;        // ... of the innermost corona (warm)
+uniform vec4 uRay;           // ray-texture amplitudes (bundles, rays, threads) and the log-mean offset
+uniform float uPostG;        // post's hero disc gain when it darkens the disc (< 1), else 1
+uniform vec4 uCorK;          // background falloff (outside views), streamer gain, warm-glow height, radial grade power
 uniform float uSkyLift;      // close hero views: brightness profile of the sky above the limb (0 = none)
 uniform float uCubeLod0;     // log2(texels per radian) of the noise cubemap
 #define NAR 10
@@ -85,8 +94,8 @@ float sheetLat(vec2 eq) {
 // compiler cannot flatten the per-sample work for inactive features)
 int gStrIdx[NSTR];
 int gNStr;
-float gOuterSky = 0.0;
-float gStreamer = 0.0;   // streamer + plume part of the last kDensity sample (they carry the fine rays)   // weight of the sky-plane striation texture (outer corona, camera outside): 3D blotches off
+float gOuterSky = 0.0;   // 1: the camera is outside the inner corona (sky-plane ray texture on, 3D direction noise off)
+float gStreamer = 0.0;   // streamer + plume part of the last kDensity sample (they carry the fine rays)
 int gArIdx[NAR];
 int gNAr;
 
@@ -123,7 +132,7 @@ float kDensity(vec3 dir, float r, float fineFade, float midW, float lod) {
   float belt = exp(-dlat * dlat / (wsh * wsh)) * (0.35 + 0.65 * smoothstep(-0.4, 0.6, bp));
   // (beyond ~2 R seen from outside, the fine variation comes from the sky-plane striations in main instead: 3D
   // direction noise seen from a finite distance projects to blotches there)
-  float o3 = 1.0 - gOuterSky * smoothstep(1.5, 2.8, r);
+  float o3 = 1.0;
   float str = max(0.6 + (0.5 * nz.w * fineFade + 0.3 * nz.x * midW + 0.25 * nz.y * midW) * o3, 0.08);
   float r6 = exp2(-6.0 * lr);
   float streamer = belt * (0.05 * r6 + 0.02 * exp2(-3.0 * lr)) * str;
@@ -146,12 +155,12 @@ float kDensity(vec3 dir, float r, float fineFade, float midW, float lod) {
     float loops = 0.9 + 0.1 * sin(arch * 30.0 + A.w * 7.0) * fineFade;
     float cav = 1.0 - 0.7 * B.w * exp(-pow((arch - 0.4) / 0.2, 2.0)) * smoothstep(0.95, 0.5, x);
     float bulb = 0.7 * r6 * bfade * loops * cav;
-    float stalk = 0.55 * exp2(-2.7 * lr) * smoothstep(0.35, 1.0, x);
+    float stalk = 0.8 * exp2(-2.4 * lr) * smoothstep(0.35, 1.0, x);
     streamer += A.w * prof * (bulb + stalk) * str;
   }
   // polar plumes: thin, slightly superradial rays rooted in the coronal holes
-  float pl = nz.z * 0.7 * fineFade + nz.y * 0.4 * midW + 0.1;
-  float plume = hole * max(pl, 0.0) * max(pl, 0.0) * 0.14 * exp2(-4.4 * lr) * (0.35 + 0.65 * fineFade);
+  float pl = nz.z * 0.7 * fineFade + nz.y * 0.4 * midW + 0.1 + 0.32 * gOuterSky;
+  float plume = hole * max(pl, 0.0) * max(pl, 0.0) * 0.14 * exp2(-4.4 * lr) * mix(0.35 + 0.65 * fineFade, 1.0, gOuterSky);
   gStreamer = streamer + plume;
 #ifdef SUN_DEBUG2
   return bg + plume;
@@ -203,16 +212,33 @@ void main() {
     vec3 wv = -ro / max(distC, 1e-6);
     vec3 ax = normalize(cross(wv, abs(wv.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
     vec3 ay = cross(wv, ax);
-    vec2 pa = normalize(vec2(dot(radial, ax), dot(radial, ay)) + 1e-6);
     float lp = log(p);
-    gOuterSky = smoothstep(2.5, 5.0, distC);
-    float fa1 = 1.0 - smoothstep(0.5, 1.5, 40.0 * pixR / p);      // angular features vs the pixel (fade to mean)
-    float fa2 = 1.0 - smoothstep(0.5, 1.5, 130.0 * pixR / p);
-    // (circles on an oblique plane through the noise volume, so the rays do not repeat around the Sun)
-    float sky1 = tn4f(ROTA * vec3(pa * 64.0, 0.0) + vec3(0.0, 0.0, lp * 1.76 + 3.0), 64.0 * pixR / p).x;
-    float sky2 = tn4f(ROTA * vec3(pa * 208.0, 0.0) + vec3(0.0, lp * 3.5 + 7.0, 0.0), 208.0 * pixR / p).y;
-    float skyRays = (0.26 * sky1 * fa1 + 0.12 * sky2 * fa2) * gOuterSky * smoothstep(1.3, 2.6, p);
-    int N = uSamples;
+    gOuterSky = smoothstep(1.22, 1.7, distC);
+    // The rays follow the large-scale field rather than exact radii: labelled by the position angle they reach far
+    // out, they fan away from the (projected) poles and lean toward the equatorial streamers low down, and
+    // straighten with height (the look of every eclipse photograph near solar minimum).
+    float th = atan(dot(radial, ay), dot(radial, ax));
+    float thN = atan(ay.y, ax.y);                                  // the Sun's north pole on the sky
+    float thL = th + 0.3 * sin(2.0 * (th - thN)) * (ax.y * ax.y + ay.y * ay.y) / (p * p);
+    vec2 pa = vec2(cos(thL), sin(thL));
+    // three octaves of threads (bundles ~6 deg, rays ~1.7 deg, threads ~0.5 deg of position angle), each a very
+    // elongated noise in (position angle, log r) flowing slowly outward; lognormal brightness: a few bright
+    // threads over many faint ones. The volume's mip chain fades octaves finer than a pixel to their mean.
+    float fl = uTime * 0.03;
+    float fpa = pixR / p;
+    vec4 ry1 = tn4f(ROTA * vec3(pa * 10.0, 0.0) + vec3(0.0, 0.0, lp * 0.8 - 0.4 * fl + 3.0), 10.0 * fpa);
+    vec4 ry2 = tn4f(ROTA * vec3(pa * 34.0, 0.0) + vec3(0.0, lp * 2.0 - fl + 7.0, 0.0), 34.0 * fpa);
+    vec4 ry3 = tn4f(ROTA * vec3(pa * 110.0, 0.0) + vec3(lp * 4.2 - 2.0 * fl, 0.0, 1.0), 110.0 * fpa);
+    float rayW = gOuterSky * smoothstep(1.0, 1.22, p);
+    float rays = exp(uRay.x * ry1.x * (1.0 + 0.6 * lp) + (uRay.y * ry2.x + uRay.z * ry3.x) * inversesqrt(p) - uRay.w);
+    // slow brightening / fading of whole bundles (the corona breathes)
+    rays *= 1.0 + 0.25 * ry1.y * sin(0.21 * uTime + 6.0 * ry1.z);
+    // outside views weight the samples toward the plane of the sky (below), so the far wings of the line of sight
+    // are skipped and the sample count drops with them (same spacing)
+    float aMax = mix(1.5708, 1.05, gOuterSky);
+    a0 = max(a0, -aMax);
+    a1 = min(a1, aMax);
+    int N = int(float(uSamples) * mix(1.0, 0.72, gOuterSky) + 0.5);
     float da = (a1 - a0) / float(N);
     vec2 acc = vec2(0.0);
     float accS = 0.0;
@@ -222,11 +248,15 @@ void main() {
       float r = p / ca;
       vec3 xp = pc + (p * tan(a)) * rd;
       vec3 dir = xp / r;
-      float ds = p / (ca * ca) * da;
+      // (seen from outside, the material near the plane of the sky carries the picture: the far wings of the
+      // line of sight, e.g. a streamer pointing at the camera, would only add a structureless fog)
+      float ds = p / (ca * ca) * da * mix(1.0, ca * ca * ca * ca, gOuterSky);
       // Thomson scattering phase (1 + cos^2 chi), chi = angle between the radial direction and the view ray
       float cchi = dot(dir, rd);
       float ph = 0.75 * (1.0 + cchi * cchi);
-      float k = kDensity(dir, r, fineFade * ca * ca * ca * ca * ca * ca, ca * ca, max(uCubeLod0 + log2(max(pixR / r, 1e-6)), 0.0));
+      // (outside views take their fine structure from the sky-plane ray texture, not from the 3D direction noise,
+      // which would project to speckle and blotches)
+      float k = kDensity(dir, r, fineFade * ca * ca * ca * ca * ca * ca * (1.0 - gOuterSky), ca * ca * (1.0 - gOuterSky), max(uCubeLod0 + log2(max(pixR / r, 1e-6)), 0.0));
       // F-corona: dust, ~r^-2.4, flattened toward the ecliptic beyond a few radii
       float z = dot(dir, uEclN);
       float flatn = mix(1.0, 0.25 + 0.75 * exp(-z * z / 0.09), smoothstep(2.0, 8.0, r));
@@ -236,9 +266,12 @@ void main() {
     }
     // fade out at the shell boundary
     float edge = 1.0 - smoothstep(0.55 * S, 0.98 * S, p);
-    // K-corona: Thomson scattering is grey (photospheric colour); rendered a touch cooler (pearl) than the disc.
-    // the streamers and plumes carry the striations; the quiet background only a trace of them
-    float kc = (acc.x - accS) * (1.0 + 0.25 * skyRays) + accS * max(1.0 + skyRays, 0.25);
+    // K-corona: the streamers and plumes are bundles of threads; the quiet background carries a trace of them and,
+    // in the outside views, falls off faster (dark sky between the streamers, as in an eclipse composite)
+    float kbg = (acc.x - accS) * mix(1.0, 1.0 / (1.0 + uCorK.x * (p - 1.0) * (p - 1.0)), gOuterSky);
+    // (display grade: the background falls off faster with radius than the streamers, which stay visible as long
+    // thin rays many radii out)
+    float kc = kbg * mix(1.0, 0.55 + 0.45 * rays, rayW) * pow(p, uCorK.w) + accS * uCorK.y * mix(1.0, rays, rayW) * pow(p, 0.5 * uCorK.w);
 #ifdef SUN_ARCADES
     // Loop arcades over active regions at the limb (cf. AIA 171; faint in white light): nested arcs rooted at
     // the region's limb footpoint, in the plane of the sky (an AR within ~15 deg of the limb).
@@ -286,7 +319,15 @@ void main() {
       float prof = pow(0.045 / (hp + 0.012), 1.5);
       kc *= max(1.0 + uSkyLift * (min(prof, 7.0) - 0.9), 0.3);
     }
-    col += (uKCol * kc + uDiscColor * vec3(1.04, 1.0, 0.92) * acc.y) * edge * uCorona;
+    // colour: a warm glow hugging the limb (the innermost corona in the disc's own light), pearl white through the
+    // streamers, a trace cooler far out
+    vec3 kcol = mix(uKColIn, uKCol, smoothstep(0.0, 1.0, (p - 1.0) / uCorK.z));
+    kcol = mix(kcol, uKCol * vec3(0.86, 0.93, 1.0), 0.7 * smoothstep(1.6, 4.5, p));
+    // display grade: the inverse of post's radially graded hero gain (wide shots exposed for the
+    // corona, where post eases the disc's exposure back over a few radii), so the corona reads the same in every
+    // hero shot
+    kc /= clamp(uPostG * p * sqrt(p), uPostG, 1.0);
+    col += (kcol * kc + uDiscColor * vec3(1.04, 1.0, 0.92) * acc.y) * edge * uCorona;
   }
 
 #endif
@@ -380,8 +421,8 @@ void main() {
       }
       float L = 1.0 - exp(-(tb + ts * colF));
       // the dense bases glow pink-white (optically thin lines, cf. the prominences), the tips deep crimson
-      vec3 hc = mix(vec3(1.0, 0.035, 0.065), vec3(1.0, 0.36, 0.45), 0.55 * exp(-h0 / 1.6));
-      col += hc * L * 1.4 * uChromo * rimIn;
+      vec3 hc = mix(vec3(1.0, 0.04, 0.07), vec3(1.0, 0.24, 0.3), 0.5 * exp(-h0 / 1.6));
+      col += hc * L * 1.0 * uChromo * rimIn;
     }
   }
 

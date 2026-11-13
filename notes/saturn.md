@@ -3,7 +3,35 @@
 Owns `src/bodies/saturn.js`, `src/bodies/saturn/*`, `assets/saturn/*` (+ `assets-src/scripts/process_saturn_rings.py`,
 `assets-src/raw/saturn_rings_pps/`, Saturn section of `assets-src/SOURCES.md`).
 
-## Wave 2 (current) - what changed
+## Wave 3 (current) - what changed
+
+Before / after: `shots/saturn/base_t*.png` vs `shots/saturn/film_t*.png` (`film_sheet.png`). Film beats (current cut):
+268-274 approach from below the lit face, 275-283 under the lit face beside the globe, 284-287 crescent, 288-302
+eclipse, 306-320 Titan.
+
+1. **Globe** (globe.js). Minnaert k was 0.9: with `pow(mu, k - 1)` that brightens the sunward limb (flat disc). Now
+   k = 1.03 plus a view-limb falloff `pow(mu, (0.24, 0.30, 0.42))` (deeper tan at the limb), faded out toward the
+   crescent. Fine striations x1.9 and their hue swing x1.7 (pale gold / butterscotch / faintly pink tan): the bands
+   are no longer flat fills between soft edges.
+2. **Ring structure** (rings-data.js `brightnessStructure`). The B2-B4 stand-in for the saturated PPS data is now a
+   ~1/f hierarchy of abrupt bands from 900 km down to 4 km at about twice the contrast (albedo factor exp(0.48 x) vs
+   exp(0.32 x)), and the real structure elsewhere is enhanced x1.3. The film's ring views have radial footprints of
+   30-300 km, so this (not the 1-12 km straw) is what makes the lit face read as thousands of ringlets.
+3. **C ring** (particleProps): effective albedo x1.35 and warmer (0.80, 0.70, 0.585 + plateaus), chroma factor 1.45.
+   Note the rings as a whole are physically dim in 2026 (Sun 8 deg above the plane: lit-face B ring I/F ~0.1, a fifth
+   of the globe); C / B is ~0.5-0.6 on the lit face at this geometry.
+4. **Planet shadow on the rings** (rings-glsl.js `planetShadow`): softening scale 76 -> 200 km (refraction), so the
+   shadow edge is a few px of warm falloff instead of a razor line.
+5. **Eclipse**: limb-haze gain 1 -> 1.6 with eclipse depth (`uHazeGain`, saturn.js): brighter refracted arc; ring
+   dynamic range comes from item 2. Otherwise untouched.
+6. **Titan** (moons.js): main-haze cut-off now starts at 270 km and is steeper, detached layer thinner (sigma 10 km)
+   and x0.4: the backlit ring is a fine orange-cream rim, a dark gap and a faint blue-violet thread, not one thick
+   tube out to 500 km; the half-phase disc keeps its soft terminator.
+
+Not a bug (checked): at t ~ 280 the "translucent disc" over the rings is the globe's northern hemisphere carrying the
+rings' own shadow bands; the straight edge at lower right is the A ring's outer edge seen from inside.
+
+## Wave 2 - what changed
 
 Film window in the current cut (re-locate by chapter `saturn`): 268-271 small disc, 273-277 approach above the
 lit face, 277-286 skim ~0.16 R under the lit face + close globe, 286-291 crescent / sun at the limb, 292-306
@@ -193,6 +221,10 @@ Titan shell 59-78); ring programs (not seen by that tool, compiled in the first 
 Start of wave 2 the same tool gave 9194 ms (globe 3534, icy moons 5441).
 
 ## Known gaps
+
+- Wave 3: no near-field sparkle / density-wave work (the film never gets within 5 km/px of the rings); the ring
+  particle phase function is steeper than a Callisto-like power law at phase 60 (about -25 %), left alone because
+  the classic low-phase view was tuned with it.
 
 - The hexagon in its required 2026 view is still only a twilit edge (physics; see geometry). No forward-scattered
   twilight haze glow was added to make it visible.

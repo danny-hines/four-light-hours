@@ -322,16 +322,18 @@ float hg(float c, float g) { float g2 = g * g; return (1.0 - g2) / pow(max(1.0 +
 // haze model (km): main haze exponential, detached layer near 480 km, N2 Rayleigh
 const float HH = 62.0;
 const vec3 B0 = vec3(0.74, 1.0, 1.43) * (5.0 / 62.0) ;  // per km at the surface: vertical tau ~ 5 (green)
-const vec3 BD = vec3(0.55, 1.0, 1.9) * 2.6e-4;          // detached layer peak (small grains: blue)
-const float ZD = 500.0, SD = 14.0;
+const vec3 BD = vec3(0.50, 1.0, 2.0) * 1.05e-4;         // detached layer peak (small grains: blue-violet)
+const float ZD = 500.0, SD = 10.0;                       // (wave 3: thinner and fainter -- a delicate separate thread)
 const vec3 BR = vec3(0.25, 0.55, 1.25) * 2.0e-4;        // Rayleigh at surface (scale height 45 km)
 const float HR = 45.0;
 
 vec3 extinction(float z, out vec3 bh, out vec3 bd, out vec3 br) {
   // main haze: exponential, cut off above ~320 km, leaving the clear gap under the detached layer (Cassini UVIS/ISS:
   // extinction minimum near 420 km, detached layer at ~500 km)
-  float zc = max(z - 320.0, 0.0);
-  bh = B0 * exp(-max(z, 0.0) / HH - zc * zc / 7200.0);
+  // (wave 3: the cut-off starts at 270 km and is steeper, so the backlit ring is a fine bright rim with a dark gap
+  //  under the detached thread instead of one thick glowing tube out to 500 km)
+  float zc = max(z - 270.0, 0.0);
+  bh = B0 * exp(-max(z, 0.0) / HH - zc * zc / 2600.0);
   bd = BD * exp(-0.5 * pow((z - ZD) / SD, 2.0));
   br = BR * exp(-max(z, 0.0) / HR);
   return bh + bd + br;

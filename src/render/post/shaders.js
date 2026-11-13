@@ -572,18 +572,27 @@ vec3 streak(vec2 d) {
   float u = pow(1.0 + ax / uStar2.w, -1.6);
   return uStar2.z * v * u * vec3(0.55, 0.78, 1.0);
 }
-// Scattered-light beam (sun just outside a narrow field): a straight, soft band aligned with the direction to the
-// sun, passing just beside the frame centre, with a broader, fainter companion, fading away from the sun
+// Scattered-light beams (sun just outside a narrow field): soft bands fanning out from the sun across the frame,
+// each with its own tint, the way stray light off the sunshade crosses Voyager 1's Pale Blue Dot frame. The main
+// band runs through the frame centre (the director puts Earth on that line); fainter companions diverge from it.
+vec3 beamBand(vec2 rel, vec2 dir, float ang, float sig, vec3 tint) {
+  float c = cos(ang), sn = sin(ang);
+  vec2 d = vec2(dir.x * c - dir.y * sn, dir.x * sn + dir.y * c);
+  float along = max(dot(rel, d), 0.0);
+  float across = rel.x * d.y - rel.y * d.x;
+  float w = sig * (1.0 + 0.9 * along);
+  float a = across / w;
+  return tint * exp(-0.5 * a * a) * (sig / w) / (1.0 + along / uBeam.w);
+}
 vec3 sunBeam(vec2 q, vec2 s) {
   float ls = length(s);
   vec2 dir = ls > 1e-5 ? -s / ls : vec2(0.0, 1.0);
-  vec2 nrm = vec2(-dir.y, dir.x);
-  float across = dot(q, nrm) - uBeam.z;
-  float along = max(dot(q - s, dir), 0.0);
-  float a1 = across / uBeam.y;
-  float a2 = (across + 5.0 * uBeam.y) / (3.5 * uBeam.y);
-  float b = exp(-0.5 * a1 * a1) + 0.3 * exp(-0.5 * a2 * a2);
-  return uBeam.x * b / (1.0 + along / uBeam.w) * vec3(0.9, 0.95, 1.0);
+  vec2 rel = q - s - vec2(-dir.y, dir.x) * uBeam.z;
+  vec3 b = beamBand(rel, dir, 0.0, uBeam.y, vec3(1.0, 0.80, 0.58));
+  b += beamBand(rel, dir, 0.105, uBeam.y * 1.5, vec3(0.42, 0.62, 1.0) * 0.5);
+  b += beamBand(rel, dir, -0.150, uBeam.y * 2.1, vec3(0.62, 0.95, 0.66) * 0.3);
+  b += beamBand(rel, dir, 0.235, uBeam.y * 2.6, vec3(1.0, 0.55, 0.42) * 0.22);
+  return uBeam.x * b;
 }
 void flareTerms(vec2 fc, out vec3 lensLight, out vec3 vis) {
   vis = vec3(uAVis);

@@ -84,6 +84,7 @@ export async function create(ctx) {
     uSeedS: { value: new THREE.Vector4() },
     uDt: { value: 0 },
     uQual: { value: qual },
+    uGain: { value: 1 },   // low-skim exposure assist (update())
     uI0: { value: 0 },  // always 0: makes shader loop bounds non-constant (real loops, fast FXC compile)
     // development switch (read only by this module): jdebug=1 T, 2 m, 3 tracer, 4 amp/gain/sigma, 5 detail fades, 6 palette, 7 height
     uDebug: { value: Number(new URLSearchParams(globalThis.location ? location.search : '').get('jdebug') || 0) },
@@ -181,6 +182,18 @@ export async function create(ctx) {
       // Sun relative to Jupiter's centre (universe coords: Sun at origin)
       shared.uSunJ.value.copy(frame.positions.jupiter).negate();
 
+      // Exposure assist for the low skim: the film's exposure is set for the sunlit disc, but the skim flies toward the
+      // terminator a few thousand km up, where the deck is lit at 15-35 deg and would sit in the toe of the tone curve.
+      // A camera operator would open up ~2/3 stop; this does it (a smooth, pure function of the camera position: up to
+      // x1.75 when within ~0.2 R of the cloud tops over a low sun, exactly 1 for every disc / crescent view).
+      {
+        const cx = frame.camUniverse.x - frame.positions.jupiter.x, cy = frame.camUniverse.y - frame.positions.jupiter.y, cz = frame.camUniverse.z - frame.positions.jupiter.z;
+        const cl = Math.hypot(cx, cy, cz) || 1, sj = shared.uSunJ.value, sl = sj.length() || 1;
+        const mu0c = (cx * sj.x + cy * sj.y + cz * sj.z) / (cl * sl);
+        const near = 1 - THREE.MathUtils.smoothstep(cl / R - 1, 0.12, 0.9);
+        const low = 1 - THREE.MathUtils.smoothstep(mu0c, 0.15, 0.85);
+        shared.uGain.value = 1 + 0.75 * near * low * THREE.MathUtils.smoothstep(mu0c, -0.25, 0.05);
+      }
       const dd = d - epochDays;
       shared.uDt.value = dd;
       flowClock(dd, CLOCK_L.rest, CLOCK_L.cycle, CLOCK_L.sharp, clkL);

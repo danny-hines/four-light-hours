@@ -95,7 +95,7 @@ export function createDetail({ geometry, shared }) {
           float wake = smoothstep(-0.42, -0.31, ll0.y) * (1.0 - smoothstep(-0.27, -0.2, ll0.y)) * smoothstep(-0.07, -0.17, dw) * (1.0 - smoothstep(-0.6, -1.2, dw));
           float grsW = 1.0 - smoothstep(1.04, 1.3, rg);
           float chaos = max(smoothstep(0.1, 0.6, hT.a) * mix(0.75, 1.0, smoothstep(-0.3, 0.6, lT.a)), wake) * (1.0 - grsW);
-          float lam = (1.0 - smoothstep(0.2, 0.7, chaos)) * (1.0 - polar) * (1.0 - 0.35 * smoothstep(60.0, 15.0, fpk));
+          float lam = (1.0 - smoothstep(0.2, 0.7, chaos)) * (1.0 - polar) * closeLam(fpk);
           float zone = p0.b;
           float ezM = 1.0 - smoothstep(0.07, 0.13, abs(ll0.y));
           // the nearer vortex's streamline frame (lanes of the fine octaves wrap the vortex)
@@ -147,7 +147,7 @@ export function createDetail({ geometry, shared }) {
               vec2 uvC = uvB * 8.0 + sd.yx * 3.7 + vec2(0.7 * v.x + 0.35 * v2, 0.7 * v2 - 0.35 * v.x);
               vec3 vc = tileVG(uT1, uT1G, uvC, gBx * 8.0, gBy * 8.0);
               vc.yz = vec2(dot(vc.yz, je), dot(vc.yz, jn)) * 64.0;
-              v += vc * (0.55 * DC);
+              v.x += vc.x * (0.55 * DC);   // (value only: its steep gradient embosses 'worms')
             }
             tB += v * w;
             wsum += w * w;
@@ -161,7 +161,7 @@ export function createDetail({ geometry, shared }) {
           amp = max(max(amp, 0.34 * smoothstep(0.15, 0.6, p1.a)), 0.75 * smoothstep(40.0, 8.0, fpk));
           amp = max(max(amp, 0.95 * wake), 0.42 * ezM);
           amp = mix(amp, 1.0, grsW);
-          float g = (0.75 + 0.35 * turbv) * p0.a * mix(1.0, 0.7, zone * (1.0 - 0.6 * ezM)) * mix(1.0, 0.95, grsW);
+          float g = (0.75 + 0.35 * turbv) * p0.a * mix(1.0, 0.7, zone * (1.0 - 0.6 * ezM)) * mix(1.0, 0.95, grsW) * closeGain(fpk);
           float Lf = dot(cMap, LUMW), Ld0 = dot(lT.rgb, LUMW), Lt0 = dot(hT.rgb, LUMW);
           float mRaw = clamp((Lf - Ld0) / max(Lt0 - Ld0, 1e-4), 0.0, 1.0);
           float m = 0.5 + (mRaw - 0.5) * 0.5;
@@ -173,12 +173,13 @@ export function createDetail({ geometry, shared }) {
           // a threshold here would turn their small eddies into dark speckle. Anti-aliased by their slope per pixel.
           float T0 = 0.5 + 0.5 * tanh(g * (tA + b));
           float aa = 1.0 / (1.0 + pow(length(tB.yz) * (0.65 / 0.385) * amp * fpk * g, 2.0));
-          float dTl = 0.5 * g * (1.0 - (2.0 * T0 - 1.0) * (2.0 * T0 - 1.0)) * tBn * aa;
-          float T1 = T0 + 0.22 * tanh(dTl / 0.22);
+          // (slope floor at close range: the interiors of the large swirls carry the fine filaments too, not only their edges)
+          float dTl = max(0.5 * g * (1.0 - (2.0 * T0 - 1.0) * (2.0 * T0 - 1.0)), 0.15 * smoothstep(50.0, 14.0, fpk)) * tBn * aa;
+          float T1 = T0 + 0.3 * tanh(dTl / 0.3);
           // the re-centred local end-members (as the deck): the spread grows at close range; gaps show the deeper,
           // blue-grey layer under the zones
           float closeK = smoothstep(70.0, 12.0, fpk) * (1.0 - 0.25 * grsW);
-          float Sp = max(Lt0 - Ld0, (0.05 + 0.38 * closeK + 0.17 * closeK * closeK) * Lf) * (1.0 + 0.35 * closeK);
+          float Sp = max(Lt0 - Ld0, (0.05 + 0.38 * closeK + 0.17 * closeK * closeK) * Lf) * (1.0 + 0.6 * closeK);
           float Ld = max(Lf - m * Sp, 0.2 * Lf), Lt = Lf + (1.0 - m) * Sp;
           vec3 cDk = lT.rgb * (Ld / max(Ld0, 1e-4)), cLt = hT.rgb * (Lt / max(Lt0, 1e-4));
           vec3 gapC = mix(vec3(0.80, 0.86, 0.98), vec3(1.12, 0.94, 0.72), smoothstep(-0.3, 0.3, lT.a * 2.0 - 0.3));
@@ -190,9 +191,12 @@ export function createDetail({ geometry, shared }) {
 
           // ---- relief: the fine octaves' cloud-top streets (relative to the deck's own octave-A relief) ...
           float Hamp = mix(5.0, 13.0, smoothstep(40.0, 8.0, fpk)) * mix(1.0, 0.6, zone) * (1.0 + 0.4 * wake);
-          float gh = 0.45 * g;
+          float gh = 0.45 * g / closeGain(fpk) * mix(1.0, 2.2, smoothstep(40.0, 8.0, fpk));
           float Th = 0.5 + 0.5 * tanh(gh * (tA + tBn + b));
-          vec2 Hg = Hamp * 0.5 * gh * (1.0 - (2.0 * Th - 1.0) * (2.0 * Th - 1.0)) * amp * tB.yz * (0.65 * DB / 0.385);
+          // (close range: the mesoscale eddies of octave B stand ~15 km proud, independent of the softened colour curve:
+          //  slopes of 0.1-0.3, so a 20-40 deg sun models every cloud mass)
+          float HB = mix(Hamp * 0.5 * gh * (1.0 - (2.0 * Th - 1.0) * (2.0 * Th - 1.0)) * amp * (0.65 / 0.385), 2.6 * mix(1.0, 0.7, zone), smoothstep(40.0, 12.0, fpk));
+          vec2 Hg = HB * tB.yz * DB;
           // ... and the convective cloud towers on the thick cloud of the convective regions (chaotic belts, outbreaks,
           // the GRS wake, the EZ plumes); bright compact plumes in the map are always a dense cauliflower of turrets
           vec3 east = vec3(uS.z, 0.0, -uS.x) * inversesqrt(max(dot(uS.xz, uS.xz), 1e-12));
@@ -217,6 +221,25 @@ export function createDetail({ geometry, shared }) {
             vec3 cream = vec3(0.86, 0.83, 0.76) * max(Lt, 0.42) / 0.6;
             col = mix(col, max(col, cream), 0.6 * smoothstep(0.1, 0.9, cu.w));
             col *= 1.0 - 0.1 * cover * (1.0 - smoothstep(0.0, 0.4, cu.w));
+          }
+          // ---- cast shadows of the cloud masses at a low sun: the octave-A cloud-top height field (soft footprint, exaggerated
+          //      ~2.5x: 15-35 km of relief) is probed at three distances toward the Sun. Long shadows rake across the deck
+          //      as the skim nears the terminator; nothing at a high sun.
+          float shLow = smoothstep(1.1, 0.45, tanE) * smoothstep(68.0, 45.0, fpk) * step(1.5, uQual);
+          if (shLow > 0.0) {
+            float HS = 3.2 * Hamp;
+            vec2 gSx = minLen(gA0x, 0.0011), gSy = minLen(gA0y, 0.0011);
+            vec2 sK = (vec2(kx, 0.0) * sunT.x + vec2(-shK * kx, ky) * sunT.y) / sunTl;   // tile units per km toward the Sun
+            float dMax = min(HS / max(tanE, 0.02), 700.0);
+            float kq = amp / 0.385;
+            float h0 = HS * (0.5 + 0.5 * tanh(gh * (tileV(uT1, uvA, gSx, gSy) * kq + b)));
+            float occ = 0.0;
+            for (int j = 0; j < 3 + uI0; j++) {
+              float d = dMax * (j == 0 ? 0.22 : (j == 1 ? 0.55 : 1.0));
+              float hk = HS * (0.5 + 0.5 * tanh(gh * (tileV(uT1, uvA + sK * d, gSx, gSy) * kq + b)));
+              occ = max(occ, (hk - h0 - d * tanE) / (0.4 * HS));
+            }
+            shad *= 1.0 - 0.6 * shLow * smoothstep(0.0, 1.0, occ);
           }
           // relief shading relative to the smooth deck, soft-limited at the terminator
           vec3 nB = normalize(nLoc - east * Hg.x - north * Hg.y);

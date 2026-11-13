@@ -1,12 +1,13 @@
 // Opens the built index.html straight from disk (file://) and reports whether the app starts.
 import puppeteer from 'puppeteer-core';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const browser = await puppeteer.launch({
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  executablePath: [process.env.CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe'].filter(Boolean).find((c) => fs.existsSync(c)),
   headless: 'new',
-  args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'],
+  args: [process.platform === 'win32' ? '--use-angle=d3d11' : process.platform === 'darwin' ? '--use-angle=metal' : '--use-angle=default', '--enable-gpu', '--ignore-gpu-blocklist'],
   defaultViewport: { width: 1280, height: 720 },
 });
 const page = await browser.newPage();

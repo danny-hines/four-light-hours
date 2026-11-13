@@ -9,6 +9,7 @@
 //   node src/audio/tools/render.mjs --no-wav           skip writing the WAV
 //   --sr 48000  --makeup <dB>  --out <dir> (default shots/audio)  --report <md> (default notes/audio-report.md)
 import puppeteer from 'puppeteer-core';
+import { findChrome, ANGLE } from './chrome.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -61,11 +62,6 @@ async function ensureServer() {
   }
   throw new Error('dev server did not start');
 }
-function findChrome() {
-  for (const c of [process.env.CHROME_PATH, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', 'C:/Program Files/Microsoft/Edge/Application/msedge.exe'].filter(Boolean))
-    if (fs.existsSync(c)) return c;
-  throw new Error('No Chrome/Edge found; set CHROME_PATH');
-}
 
 await ensureServer();
 fs.mkdirSync(outDir, { recursive: true });
@@ -75,7 +71,7 @@ const browser = await puppeteer.launch({
   headless: 'new',
   userDataDir,
   protocolTimeout: 1800000,
-  args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'],
+  args: [ANGLE, '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'],
 });
 const audioRelated = (txt) => /audio|score|AudioContext|AudioParam|AudioNode|AudioScheduled|worklet|render\.mjs/i.test(txt);
 const logs = [];
@@ -149,7 +145,7 @@ try {
   lines.push('| check | value | target | |', '| --- | --- | --- | --- |');
   lines.push(`| true peak (4x oversampled) | ${A.truePeakDb} dBTP at ${A.truePeakAt} s | < -1.0 dBTP | ${ok(A.truePeakDb < -1)} |`);
   lines.push(`| sample peak | ${A.samplePeakDb} dBFS at ${A.samplePeakAt} s | < -1.0 dBFS | ${ok(A.samplePeakDb < -1)} |`);
-  lines.push(`| integrated loudness (BS.1770-4, gated) | ${A.integratedLufs} LUFS | about -18 | ${ok(Math.abs(A.integratedLufs + 18) <= 2)} |`);
+  lines.push(`| integrated loudness (BS.1770-4, gated) | ${A.integratedLufs} LUFS | -16 .. -14 | ${ok(A.integratedLufs >= -16.3 && A.integratedLufs <= -13.7)} |`);
   lines.push(`| loudness range (EBU 3342) | ${A.lra} LU | cinematic: 6-15 | ${ok(A.lra >= 4 && A.lra <= 18)} |`);
   lines.push(`| max short-term loudness | ${A.shortTermMax} LUFS | | |`);
   if (!res.clicks) lines.push(`| longest silence (< -60 dBFS / 100 ms) inside the film | ${A.longestSilence.seconds} s at ${A.longestSilence.at} s | < 1.5 s | ${ok(A.longestSilence.seconds < 1.5)} |`);
@@ -198,11 +194,19 @@ try {
     for (let i = 1; i < SS.worlds.length; i++) if (SS.corr[i][i - 1] !== null) lines.push(`| ${SS.worlds[i - 1]} → ${SS.worlds[i]} | ${SS.corr[i][i - 1]} | ${SS.cos[i][i - 1]} |`);
   }
   const CUES = res.plan.cues || [];
-  const ANCH = ['earthrise', 'eclipse', 'pale-blue-dot'].map((id) => CUES.find((c) => c.id === id)).filter(Boolean);
+  // the anchors: Earth (the Blue Marble arrival with the Home theme, and Earthrise), the Saturn eclipse, the pale blue dot.
+  // Each has a window (the theme it carries) and a group; the film's loudest moments must fall inside them.
+  const earthSec = res.plan.sections.find((s) => s.world === 'earth' && s.arrive);
+  const ANCH = [
+    earthSec ? { id: 'earth-arrival', group: 'earth', t: earthSec.t0, span: 34 } : null,
+    ...[['earthrise', 'earth', 18], ['eclipse', 'eclipse', 30], ['pale-blue-dot', 'pale-blue-dot', 26]].map(([id, group, span]) => { const c = CUES.find((x) => x.id === id); return c ? { id, group, t: c.t, span } : null; }),
+  ].filter(Boolean);
+  const GROUPS = [...new Set(ANCH.map((a) => a.group))];
+  const inAnchor = (pk) => ANCH.find((a) => pk.t >= a.t - 2 && pk.t <= a.t + a.span);
   lines.push('', '## Loudness arc', '');
-  lines.push(`The film's loudest short-term moments (3 s windows ending at t, at least 8 s apart), and the three emotional anchors (${ANCH.map((a) => a.id + ' ' + a.t.toFixed(1)).join(', ')}): the top 3 must be the anchors, and no warp leg may come within 1 dB of the quietest anchor.`, '');
+  lines.push(`The film's loudest short-term moments (3 s windows ending at t, at least 8 s apart), and the emotional anchors (${ANCH.map((a) => a.id + ' ' + a.t.toFixed(1)).join(', ')}): the 4 loudest moments must all fall inside an anchor's theme and cover all three anchors (Earth, the eclipse, the pale blue dot), and no warp leg may come within 2 dB of the quietest anchor.`, '');
   lines.push('| rank | t (s) | ST LUFS | anchor |', '| --- | --- | --- | --- |');
-  (A.stPeaks || []).forEach((pk, i) => lines.push(`| ${i + 1} | ${pk.t} | ${pk.lufs} | ${ANCH.find((a) => pk.t >= a.t - 2 && pk.t <= a.t + 16)?.id || ''} |`));
+  (A.stPeaks || []).forEach((pk, i) => lines.push(`| ${i + 1} | ${pk.t} | ${pk.lufs} | ${inAnchor(pk)?.id || ''} |`));
   const TH = res.plan.themes;
   const NN0 = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'];
   const nn0 = (m) => NN0[((Math.round(m) % 12) + 12) % 12] + (Math.floor(Math.round(m) / 12) - 1);
@@ -228,9 +232,9 @@ try {
   const drift = legs.filter((w) => gest(w) !== 'hush' && w.peak < 0.5);
   const cres = legs.filter((w) => gest(w) !== 'hush' && w.peak >= 0.5),
     hush = legs.filter((w) => gest(w) === 'hush');
-  const pk3 = (A.stPeaks || []).slice(0, 3);
-  const anchorOf = (pk) => ANCH.find((a) => pk.t >= a.t - 2 && pk.t <= a.t + 16);
-  const anchorPeaks = ANCH.map((a) => Math.max(-99, ...(A.stPeaks || []).filter((pk) => pk.t >= a.t - 2 && pk.t <= a.t + 16).map((pk) => pk.lufs)));
+  const pk3 = (A.stPeaks || []).slice(0, 4);
+  const anchorOf = inAnchor;
+  const anchorPeaks = GROUPS.map((g) => Math.max(-99, ...(A.stPeaks || []).filter((pk) => inAnchor(pk)?.group === g).map((pk) => pk.lufs)));
   const legLoudest = Math.max(...legs.map((w) => w.legStMax));
   const LONG = TH.long || [];
   const regBad = REG.filter((r, i) => i > 1 && REG[i - 1].top !== null && r.top !== null && Math.abs(r.top - REG[i - 1].top) < 3);
@@ -238,13 +242,13 @@ try {
   const anchors = res.plan.sections.flatMap((s) => s.anchorChecks || []);
   const checks = [
     ['true peak < -1 dBTP', A.truePeakDb < -1, `${A.truePeakDb} dBTP`],
-    ['integrated loudness -18 +- 2 LUFS', Math.abs(A.integratedLufs + 18) <= 2, `${A.integratedLufs} LUFS`],
+    ['integrated loudness -16 .. -14 LUFS', A.integratedLufs >= -16.3 && A.integratedLufs <= -13.7, `${A.integratedLufs} LUFS`],
     ['every crescendo leg: never below the pre-leg music by > 1 dB', cres.every((w) => w.legMinVsPre === null || w.legMinVsPre >= -1), `worst ${Math.min(...cres.map((w) => w.legMinVsPre ?? 0)).toFixed(1)} dB`],
     ['every crescendo leg crests 0..+5 dB above the pre-leg music', cres.every((w) => w.legMaxVsPre === null || (w.legMaxVsPre >= -0.5 && w.legMaxVsPre <= 5)), `${Math.min(...cres.map((w) => w.legMaxVsPre ?? 0)).toFixed(1)} .. ${Math.max(...cres.map((w) => w.legMaxVsPre ?? 0)).toFixed(1)} dB`],
     ['every slow drift between worlds (peak warp < 0.5) sags no more than 3 dB', drift.every((w) => w.legMinVsPre === null || w.legMinVsPre >= -3), drift.map((w) => `${w.ws}: ${w.legMinVsPre} dB (peak ${w.peak})`).join(', ') || 'none'],
     ['every hush leg falls away (<= -6 dB) and the reveal rises out of it (bloom >= hush + 6 dB)', hush.every((w) => (w.legMinVsPre ?? 0) <= -6 && w.bloomStMax - (w.preLeg + w.legMinVsPre) >= 6), hush.map((w) => `${w.ws}: ${w.legMinVsPre} dB, bloom +${(w.bloomStMax - (w.preLeg + w.legMinVsPre)).toFixed(1)}`).join(', ') || 'none'],
-    ['the top 3 short-term moments are the anchors (Earthrise, eclipse, pale blue dot)', ANCH.length < 3 || (pk3.length === 3 && new Set(pk3.map((pk) => anchorOf(pk)?.id).filter(Boolean)).size === 3), pk3.map((pk) => `${pk.t} s ${pk.lufs} (${anchorOf(pk)?.id || 'not an anchor'})`).join(', ')],
-    ['no warp leg within 1 dB of the quietest anchor', ANCH.length < 3 || legLoudest <= Math.min(...anchorPeaks) - 1, `loudest leg ${legLoudest.toFixed(1)}, quietest anchor ${Math.min(...anchorPeaks).toFixed(1)} LUFS`],
+    ['the 4 loudest short-term moments are the anchors (Earth arrival / Earthrise, the eclipse, the pale blue dot)', GROUPS.length < 3 || (pk3.every((pk) => anchorOf(pk)) && new Set(pk3.map((pk) => anchorOf(pk)?.group)).size === 3), pk3.map((pk) => `${pk.t} s ${pk.lufs} (${anchorOf(pk)?.id || 'not an anchor'})`).join(', ')],
+    ['every anchor at least 2 dB above the loudest warp leg', GROUPS.length < 3 || legLoudest <= Math.min(...anchorPeaks) - 2, `loudest leg ${legLoudest.toFixed(1)}, quietest anchor ${Math.min(...anchorPeaks).toFixed(1)} LUFS`],
     ['at least 3 long melodic lines (8+ notes, 12+ s)', LONG.length >= 3, LONG.map((l) => `${l.name} ${l.notes} notes ${(l.t1 - l.t0).toFixed(0)} s`).join(', ')],
     ['neighbouring worlds differ by a minor third or more (top-voice median)', regBad.length === 0, regBad.map((r) => r.world).join(', ') || 'all'],
     ['every arrival step < 8 dB within 50 ms', legs.every((w) => w.arrivalStepDb < 8), `worst ${Math.max(...legs.map((w) => w.arrivalStepDb)).toFixed(1)} dB`],

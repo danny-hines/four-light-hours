@@ -78,8 +78,8 @@ ${SUN_NOISE_GLSL}
 ${SUN_HASH_GLSL}
 ${SUN_COMMON}
 
-const vec3 HA = vec3(1.0, 0.045, 0.05);    // H-alpha (656 nm) with a trace of H-beta: eclipse red (AgX desaturates it toward salmon)
-const vec3 THIN = vec3(1.0, 0.3, 0.32);     // H-beta + He D3 blend of the dense cores: pale pink
+const vec3 HA = vec3(1.0, 0.06, 0.075);   // H-alpha (656 nm) with a trace of H-beta: eclipse red (AgX desaturates it toward salmon)
+const vec3 THIN = vec3(1.0, 0.27, 0.3);      // H-beta + He D3 blend of the dense cores: pale pink
 
 vec2 boxHit(vec3 ro, vec3 rd, vec3 bmin, vec3 bmax) {
   vec3 inv = 1.0 / rd;
@@ -148,7 +148,7 @@ void ropeCrossing(int k, float th, vec3 C, vec3 Tg, vec3 ro, vec3 rd, float tA, 
   // rope radius: pinched at the feet, fatter toward the apex, lumpy along its length; one leg fatter than the other
   float leg = max(0.2, 1.0 + gD.z * cth);
   float w = gB.x * (0.5 + 0.62 * smoothstep(0.0, 0.65, hN)) * (0.85 + 0.6 * max(nL.x, -0.35)) * (0.8 + 0.2 * leg);
-  float wE = 2.4 * w;
+  float wE = 3.0 * w;
   float eE = d2 / (wE * wE);
   if (eE > 5.0) return;
   vec3 cr = cross(rd, Tg);
@@ -164,7 +164,7 @@ void ropeCrossing(int k, float th, vec3 C, vec3 Tg, vec3 ro, vec3 rd, float tA, 
   // field-aligned cloud structure on the sky (~12:1, long along the strand): x rope fragmentation, y/z patchiness
   vec4 nC = tn4(vec3(a * 0.16 + t * 0.03, u * 1.05 + fk * 1.7, uSeed + 5.0));
   // the diffuse envelope: a wide, faint Gaussian cloud around the rope, continuous along it
-  float envM = uArch.z * (0.25 + 1.2 * smoothstep(-0.35, 0.45, nL.y + 0.6 * nC.y));
+  float envM = uArch.z * (0.07 + 1.5 * smoothstep(-0.15, 0.5, nL.y + 0.6 * nC.y));
   float gE = exp(-eE);
   float colE = dens * envM * wE * 0.8862 / sp * gE * limE;
   col += colE;
@@ -181,11 +181,11 @@ void ropeCrossing(int k, float th, vec3 C, vec3 Tg, vec3 ro, vec3 rd, float tA, 
   float aa = abs(dq) * span;                             // distance from the apex: rain drains down both legs
   float fpu = uPixAngle * max(sS, 0.0) / w;              // pixel footprint in rope radii
   // rope-level fragmentation: a few long gaps along the rope, soft-edged
-  float fragR = 0.15 + 0.85 * smoothstep(-0.3, 0.25, nL.z + 0.45 * nC.x);
+  float fragR = 0.06 + 0.94 * smoothstep(-0.12, 0.38, nL.z + 0.45 * nC.x);
   // condensations: lognormal clumps along each strand (~3-6 units), different in every strand, drifting with the
   // flows; and a fibrous fill between the threads (field-aligned ridges at two scales)
   vec4 nK = tn4(vec3(a * 0.4 - t * 0.06, u * 0.7 + fk * 2.3, uSeed * 3.1 + 2.0));
-  float clumps = exp(1.5 * (nK.x + 0.7 * nL.x) - 0.15);
+  float clumps = exp(2.0 * (nK.x + 0.7 * nL.x) - 0.3);
   float fib = 1.0 - abs(nK.y + 0.6 * nC.z);
   float M = uArch.y * (0.15 + smoothstep(-0.4, 0.5, nL.w + 0.5 * nC.z)) * (0.35 + 1.1 * fib * fib);
   float tw = gC.y * uArch.w;
@@ -204,8 +204,8 @@ void ropeCrossing(int k, float th, vec3 C, vec3 Tg, vec3 ro, vec3 rd, float tA, 
     if (prof < 0.01) continue;
     // brightness drifts smoothly along each thread (correlation ~5 units, 30+ thread widths) and slides down the
     // legs (coronal rain); rare soft gaps
-    vec2 ns = tn4(vec3(aa * (0.2 + 0.12 * hs.y) - t * (0.25 + 0.3 * hs.x), fi * 2.9 + fk * 1.3, uSeed * 1.9 + 11.0)).xy;
-    float seg = exp(1.7 * ns.x) * smoothstep(-0.5, -0.22, ns.y);
+    vec2 ns = tn4(vec3(aa * (0.34 + 0.2 * hs.y) - t * (0.25 + 0.3 * hs.x), fi * 2.9 + fk * 1.3, uSeed * 1.9 + 11.0)).xy;
+    float seg = exp(1.9 * ns.x) * smoothstep(-0.2, 0.12, ns.y);
     // lognormal brightness per thread (sigma ~0.6)
     float br = exp(2.1 * (fract(hs.x * 13.7 + hs.z * 5.3) - 0.5));
     thr += br * prof * seg;

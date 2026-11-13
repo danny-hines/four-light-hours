@@ -84,13 +84,13 @@ export async function create(ctx) {
     uSeed: { value: [new THREE.Vector3(), new THREE.Vector3()] },
     uLoop: { value: 1 },
     uOmega: { value: new THREE.Vector3(0.9998, 0.99975, 0.9992) },
-    uAlbGain: { value: 1.23 },
+    uAlbGain: { value: 1.3 },
     uOctS: { value: [] },
     uOctA: { value: [] },
-    uContrast: { value: 0.5 },
+    uContrast: { value: 1.0 },
     uAbsCol: { value: new THREE.Vector3(...vec('vabs', [0.34, 0.64, 0.95])) },
     uGlow: { value: 6e-4 },
-    uStreak: { value: 2.6 },
+    uStreak: { value: 4.2 },
     uRelief: { value: 2e-4 },
     uDebug: { value: 0 },
     uCells: { value: 0.45 },
@@ -99,9 +99,10 @@ export async function create(ctx) {
     uSky: { value: 0.03 },
     uGloryGain: { value: 0.05 },
     uGloryFade: { value: 0 },
-    uFine: { value: 1.0 },
+    uFine: { value: 0.8 },
     uRidge: { value: 0.5 },
     uFineBoost: { value: 1.2 },
+    uWarpK: { value: 0.3 },
   };
   // per-octave tables of the deck's fine streak octaves (see deck.js): extra anisotropy (octS - 1) * aniso * share
   {
@@ -125,11 +126,12 @@ export async function create(ctx) {
   // ---------------------------------------------------------------- haze shell (transparent)
   const hazeU = {
     ...shared,
-    uTwilight: { value: 0.2 },
-    uTwA: { value: 1.2 },
+    uTwilight: { value: 0.3 },
+    uTwA: { value: 2.5 },
     uTwK: { value: 20.0 },
     uMsF: { value: 1.0 },
     uMsTint: { value: new THREE.Vector3(1.0, 0.982, 0.875) },
+    uFwd: { value: new THREE.Vector4(...vec('vfwd', [1.0, 0.84, 0.58, 5.0])) },
     uSteps: { value: q === 'low' ? 10 : q === 'med' ? 13 : 16 },
     uSegs: { value: 2 },
   };
@@ -176,7 +178,7 @@ export async function create(ctx) {
   if (dbg.includes('flat')) deckU.uContrast.value = 0;
   if (dbg.includes('plan')) deckU.uDebug.value = 3;
   const num = (k) => (typeof location !== 'undefined' && new URLSearchParams(location.search).has(k) ? Number(new URLSearchParams(location.search).get(k)) : null);
-  for (const [k, u] of [['vcon', deckU.uContrast], ['vrel', deckU.uRelief], ['vstr', deckU.uStreak], ['vtw', hazeU.uTwilight], ['vtwa', hazeU.uTwA], ['vtwk', hazeU.uTwK], ['vmsf', hazeU.uMsF], ['vcell', deckU.uCells], ['vcr', deckU.uCellRelief], ['vcalb', deckU.uCellAlb], ['vsky', deckU.uSky], ['vglory', deckU.uGloryGain], ['vfine', deckU.uFine], ['vridge', deckU.uRidge], ['vfb', deckU.uFineBoost], ['valb', deckU.uAlbGain]]) if (num(k) !== null) u.value = num(k);
+  for (const [k, u] of [['vcon', deckU.uContrast], ['vrel', deckU.uRelief], ['vstr', deckU.uStreak], ['vtw', hazeU.uTwilight], ['vtwa', hazeU.uTwA], ['vtwk', hazeU.uTwK], ['vmsf', hazeU.uMsF], ['vcell', deckU.uCells], ['vcr', deckU.uCellRelief], ['vcalb', deckU.uCellAlb], ['vsky', deckU.uSky], ['vglory', deckU.uGloryGain], ['vfine', deckU.uFine], ['vridge', deckU.uRidge], ['vfb', deckU.uFineBoost], ['valb', deckU.uAlbGain], ['vwarp', deckU.uWarpK]]) if (num(k) !== null) u.value = num(k);
 
   function update(frame) {
     const d = frame.simDays;

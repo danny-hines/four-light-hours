@@ -15,49 +15,61 @@ import { bvToTemp, makeColourLUT, T_MAX, T_MIN } from './colour.js';
 import { OBJECTS } from './catalog.js';
 import { MW_FRAG, MW_VERT, STAR_FRAG, STAR_VERT } from './shaders.js';
 import { makeField } from './field.js';
+import { makeNoiseTile, makeStarTile } from './tiles.js';
 
 // ------------------------------------------------------------------------------------------------ calibration
 export const CAL0 = {
-  K: 95, //            pixel-sum energy of a V = 0 star at the reference scale (fov 50 deg over 900 px)
+  K: 300, //            pixel-sum energy of a V = 0 star at the reference scale (fov 50 deg over 900 px)
   FOV_Q: 0.5, //        1 = physical pixel-solid-angle scaling across fov; <1 tempers it (wide shots keep their stars)
   MW_BOOST: 5.5, //     perceptual/photographic boost of all diffuse light relative to stars (~1.6 mag)
+  MAG_PIVOT: 2.5, //    photographic response of the stars: fluxes below this magnitude are compressed ...
+  MAG_GAMMA: 0.66, //   ... to flux^MAG_GAMMA (1 = linear), so the deep field shows without the bright stars burning out
+  MAG_FAINT: 0.06, //    extra dimming (mag per mag) of the procedural field below V = 8 (depth: dust, not salt)
+  HALO_SAT: 1.5, //     chroma of a star's halo relative to its core
+  FIELD_DENS: 0.55, //  flattening of the deep field's plane-to-pole density contrast (1 = follows the starlight)
+  CUT: 6e-4, //         a star's quad ends where its image falls below this
   SIGMA: 0.8, //        PSF core sigma in CSS px (energy-conserving floor: faint stars dim, they never shrink)
-  GROW_P: 0.35, //      above saturation the visible core widens like a photographic star image (energy conserved)
-  HALO_F: 0.08, //      fraction of each star's light in the Moffat halo (x1.8 for the brightest stars)
-  HALO_A: 3.2,
+  GROW_P: 0.42, //      above saturation the visible core widens like a photographic star image (energy conserved)
+  HALO_F: 0.14, //      fraction of each star's light in the Moffat halo (x1.8 for the brightest stars)
+  HALO_A: 4.5,
   HALO_B: 1.65,
   HALO_MAX: 56,
   THRESH: 1.2e-4, //    cull stars whose brightest pixel is below this
   SAT_STAR: 0.95,
   SAT_MAG: 4.5, //      stars fainter than this progressively lose chroma
-  SAT_MW: 0.6,
+  SAT_MW: 0.9,
+  ADAPT: 12, //         adaptation to sunlit bodies: sky gain / (1 + ADAPT x lit share of the frame) ...
+  ADAPT_MIN: 0.3, //    ... never below this
+  SHOULDER: 1.6, //     displayed radiance where the diffuse light's shoulder sets in (the star clouds never clip)
+  WARP_DIM: 0.5, //    at full warp the field stars lose this many magnitudes per magnitude below V = 6
   SAT_OBJ: 1.0,
+  NEB: 1.5, //          brightness of the bright (sprite) emission nebulae: small vivid glints ...
+  GAL: 1.3, //          ... and of the galaxies, relative to the Milky Way's diffuse light
   MW_GAMMA: 1.0,  //    compress the Milky Way's internal contrast (stretch), about the Sagittarius star cloud
   OBJ_GAMMA: 0.68, //   extra photographic stretch of the structure-sprite nebulae (their faint outer structure shows)
-  DUST: 0.6, //        log-normal sigma of the sub-texel dust column detail
-  WARP: 0.7, //         domain warp of the dust map (texels)
-  ANISO: 3.5, //        filament elongation of the sub-texel dust detail along the column's contours
-  RIDGE: 0.3, //        ridged share of that detail (thin dark filaments)
   SHARP: 0.5, //       log-tau unsharp mask
-  LEVEL_K: 3.0, //      contour-following dust filaments: noise units per e-fold of tau
+  FIL: 0.9, //          dust filaments: e-folds of tau on a ridge of the filament noise
+  FIL2: 0.6, //         ... relative strength of the second (finer, sheared) layer
+  FIL_N: 8, //          filament tile repeats around the Galactic plane (integer)
+  FIL_S: 2.2, //        elongation of the filaments along the plane
+  FIL_WARP: 3.0, //     domain warp of the dust map by the tile's fBm (IRAS texels)
+  RED_K: 1.3, //        reddening of the starlight by the dust (1 = standard extinction curve)
   NEAR_K: 1.5, //       scale of the near-star light cap (the foreground stars inside the plane's dark lanes)
   F_EXT: 0.12, //       fraction of the foreground column in front of the nearest stars
   EDGE2: 1.5, //        steepening of ln tau about the visual cloud edge (tau = EDGE2_TAU), footprint-limited
   EDGE2_TAU: 2.0,
   TAU_CAP: 3.0, //      small dark clouds: their optical depth above the ~2 deg column saturates at about this
-  EDGE_K: 1.2, //       steepening of cloud boundaries through the local mean column (slope 1 + EDGE_K), on edges only
-  T_DISK: 7200, //      diffuse-light population colour temperatures (white point 6000 K)
-  T_BULGE: 4300,
+  GATE: [0.0008, 0.006], // displayed diffuse brightness over which the procedural detail fades in
+  GRAIN: 0.42, //        share of the diffuse starlight shown as resolved points (star-dust tile)
+  CLUMP: 0.6, //        gain of the minified (clumping) octaves of the tile
+  GRAIN_JIT: 0.05, //   colour scatter of the grain stars
+  GRAIN_A0: 0.0024, //  texel angle (rad) of the coarsest star-tile octave; each octave halves it
+  TILE: [0.12, 1.3, 15, 0.62], // star tile: stars per texel, Pareto index of the fluxes, flux range, PSF sigma (texels)
+  T_DISK: 7600, //      diffuse-light population colour temperatures (white point 6000 K)
+  T_BULGE: 4700,
+  BULGE_LIFT: 1.5, //   extra light of the bulge population (the inner Galaxy swells and outshines the disk)
   DISK_VJ: 1.5, //      visible/near-IR light ratio of the disk relative to the bulge (colour V-J ~0.45 mag bluer)
   DGL: 0.25, //         diffuse galactic light (dust-scattered starlight) strength
-  RES_H0: 0.0046, //    resolved star-cloud lattices: cell spacing (rad) of level 0; level k has RES_H0 / 2^k
-  RES_W0: 1.6, //      a lattice level fades in as its cell spacing grows from RES_W0 to RES_W1 px
-  RES_W1: 2.4,
-  RES_ALPHA: 0.3, //   luminosity function of the unresolved star clouds, N(<m) ~ 10^(alpha m), m > the field limit
-  RES_COUNT: 1.0, //   photographic count scale (< 1: fewer, brighter points for the same light)
-  RES_BOOST: 1.0, //   share of the diffuse light's photographic boost the resolved points get (1 = all of it)
-  REM_K: 1.0, //       gain of the unresolved remainder's pixel-scale grain (1 = its Poisson std)
-  MOTTLE: 1.0, //      gain of the star-cloud clustering mottle (2-20 arcmin)
   BULGE: [13.0, 3.6, 3.0, 0.15], // bulge light missing from the saturated layer: amplitude, l / b scales (deg), bar
   BULGE_K: [0.6, 2.0], //  bulge screen: fraction of the column away from the mid-plane, in the mid-plane
   DOP_P: 1.4, //        tempered Doppler brightness exponent for stars, approaching side (bolometric would be 4)
@@ -147,8 +159,9 @@ function makeObjectTexture(objects, Kd, sprites) {
         return;
       }
       const hx = sp.half[0] * DEG, hy = sp.half[1] * DEG;
-      const pe = (o.V !== undefined ? (Kd * Math.pow(10, -0.4 * o.V)) / Math.max(sp.emInt, 1) : Kd * Math.pow(10, -0.4 * (o.mu ?? 99))) * CAL.MW_BOOST;
-      const pr = (o.VR !== undefined ? (Kd * Math.pow(10, -0.4 * o.VR)) / Math.max(sp.rfInt, 1) : Kd * Math.pow(10, -0.4 * (o.muR ?? 99))) * CAL.MW_BOOST;
+      const nb = o.sprite === 'lmc' ? 1 : CAL.NEB;
+      const pe = nb * (o.V !== undefined ? (Kd * Math.pow(10, -0.4 * o.V)) / Math.max(sp.emInt, 1) : Kd * Math.pow(10, -0.4 * (o.mu ?? 99))) * CAL.MW_BOOST;
+      const pr = (o.sprite === 'lmc' ? CAL.GAL : 1) * (o.VR !== undefined ? (Kd * Math.pow(10, -0.4 * o.VR)) / Math.max(sp.rfInt, 1) : Kd * Math.pow(10, -0.4 * (o.muR ?? 99))) * CAL.MW_BOOST;
       const cr = o.colR || [1, 1, 1];
       const LR = luminance(cr);
       const ext = Math.hypot(hx, hy) * 1.02;
@@ -171,7 +184,7 @@ function makeObjectTexture(objects, Kd, sprites) {
         const rAs = o.r * 3600;
         peak = (Kd * Math.pow(10, -0.4 * o.V)) / (2 * Math.PI * rAs * rAs * q);
       } else peak = Kd * Math.pow(10, -0.4 * o.mu);
-      peak *= CAL.MW_BOOST;
+      peak *= CAL.MW_BOOST * (o.kind === 2 ? CAL.GAL : 1);
       const ext = o.kind === 0 ? (o.ring ? o.ring + 3 * (o.rw || 0.2) : 3.0) : o.kind === 1 ? 4.5 : o.kind === 2 ? 8 : 18;
       const cosLim = Math.cos(Math.min(85, ext * o.r) * DEG);
       let sx = 0, sy = 0, ss = 0;
@@ -257,7 +270,7 @@ export async function create(ctx) {
 
   // ---------------------------------------------------------------- shared uniforms
   const shared = {
-    uSkyGain: U.uSkyGain,
+    uSkyGain: { value: 1 }, // U.uSkyGain x the sky's own adaptation to sunlit bodies in the frame (see update)
     uLUT: { value: lut },
     uLUTRange: { value: lutRange },
     uBeta: { value: 0 },
@@ -268,7 +281,7 @@ export async function create(ctx) {
 
   // faint field: deep enough (to V ~10.6 at high quality) that most of it sits near the visual floor and merges into
   // the star-cloud texture; the resolved star clouds continue its luminosity function below that limit
-  const FQ = { low: [100000, 9.9], med: [200000, 10.25], high: [400000, 10.6] }[ctx.quality] ?? [400000, 10.6];
+  const FQ = { low: [300000, 11.0], med: [650000, 11.7], high: [1300000, 12.3] }[ctx.quality] ?? [1300000, 12.3];
   // ---------------------------------------------------------------- Milky Way shell
   const Kd = CAL.K * OMEGA_REF; // pixel radiance per (flux per arcsec^2)
   // texture radiance unit: the Sagittarius star cloud (~0.86 in the texture) has mu_V ~ 20.0 mag/arcsec^2
@@ -277,6 +290,11 @@ export async function create(ctx) {
   const useSprites = !!(nebTex && nebMeta?.sprites);
   const objList = OBJECTS.filter((o) => (useSprites ? !o.fallback && (o.kind !== 4 || nebMeta.sprites[o.sprite]) : o.kind !== 4));
   const obj = makeObjectTexture(objList, Kd, nebMeta?.sprites);
+  // procedural tiles (deterministic): star dust for the resolved star clouds, noise for the dust filaments
+  const tGen0 = performance.now();
+  const starTile = makeStarTile({ size: ctx.quality === 'low' ? 512 : 1024, density: CAL.TILE[0], alpha: CAL.TILE[1], range: CAL.TILE[2], sigma: CAL.TILE[3] });
+  const noiseTile = makeNoiseTile({ size: 512 });
+  const tGen1 = performance.now();
   const mwMat = new THREE.ShaderMaterial({
     uniforms: {
       ...shared,
@@ -300,33 +318,31 @@ export async function create(ctx) {
       uObjToTex: { value: 1 / mwK },
       uSat: { value: CAL.SAT_MW },
       uSatObj: { value: CAL.SAT_OBJ },
-      uDust: { value: CAL.DUST },
-      uWarpAmp: { value: CAL.WARP },
       uSharp: { value: CAL.SHARP },
-      uLevelK: { value: CAL.LEVEL_K },
-      uAniso: { value: CAL.ANISO },
-      uRidge: { value: CAL.RIDGE },
       uFExt: { value: CAL.F_EXT },
-      uEdgeK: { value: CAL.EDGE_K },
       uTauCap: { value: CAL.TAU_CAP },
       uEdge2: { value: new THREE.Vector2(CAL.EDGE2, Math.log(CAL.EDGE2_TAU)) },
       uPop: { value: new THREE.Vector3(CAL.T_DISK, CAL.T_BULGE, CAL.DGL) },
       uDiskVJ: { value: CAL.DISK_VJ },
+      uBulgeLift: { value: CAL.BULGE_LIFT },
       uMWGamma: { value: CAL.MW_GAMMA },
       uObjGamma: { value: CAL.OBJ_GAMMA },
       uExpo: U.uExposure,
       uDetail: { value: DBG.has('nodetail') ? 0 : 1 },
+      uGate: { value: new THREE.Vector2(...CAL.GATE) },
+      uRedK: { value: CAL.RED_K },
+      uShoulder: { value: CAL.SHOULDER },
       uDopP: { value: CAL.DOP_P_MW },
-      uResH0: { value: CAL.RES_H0 },
-      uResWin: { value: new THREE.Vector2(CAL.RES_W0, CAL.RES_W1) },
-      // luminosity function of the unresolved light: m_b = the faint field's limit; texture unit 0.86 = mu_V 20.0
-      uLF: { value: new THREE.Vector4(0.4 / CAL.RES_ALPHA, (Math.pow(10, -0.4 * 20.0) / 0.86) * Math.pow(10, 0.4 * FQ[1]), CAL.RES_COUNT, Math.min(1, CAL.RES_BOOST)) },
-      uRemK: { value: new THREE.Vector2(CAL.REM_K, CAL.MOTTLE) },
-      uResN: { value: DBG.has('nores') ? 0 : ({ low: 3, med: 5 }[ctx.quality] ?? 7) },
+      tStar: { value: starTile.tex },
+      uStarT: { value: new THREE.Vector4(CAL.GRAIN_A0, 1 / starTile.size, starTile.vmax, 0) },
+      uGrainN: { value: DBG.has('nores') ? 0 : ({ low: 5, med: 6 }[ctx.quality] ?? 7) },
+      uGrain: { value: new THREE.Vector4(CAL.GRAIN, CAL.CLUMP, CAL.GRAIN_JIT, 0.12) },
+      tNoise: { value: noiseTile.tex },
+      uFil: { value: new THREE.Vector4(CAL.FIL_N, CAL.FIL_S, CAL.FIL, CAL.FIL_WARP) },
+      uFilM: { value: new THREE.Vector4(noiseTile.mean[0], noiseTile.mean[1], noiseTile.size, CAL.FIL2) },
       uBulge: { value: new THREE.Vector4(...CAL.BULGE) },
       uBulgeK: { value: new THREE.Vector2(...CAL.BULGE_K) },
       uDopRec: { value: new THREE.Vector2(...CAL.DOP_REC_MW) },
-      uResSig: { value: CAL.SIGMA },
     },
     vertexShader: MW_VERT,
     fragmentShader: MW_FRAG,
@@ -342,41 +358,34 @@ export async function create(ctx) {
   group.add(shell);
 
   // ---------------------------------------------------------------- stars
+  // One shared material; the catalogue stars are one instanced mesh (never culled), the deep procedural field is
+  // sorted into sky patches (cube faces x PG x PG) that are switched on only when they can touch the view, so the
+  // field can be several times deeper than a single always-drawn buffer could afford.
   const dv = new DataView(starBuf);
   const nBSC = dv.getUint32(0, true);
-  // faint field: deep enough (to V ~10.6 at high quality) that most of it sits near the visual floor and merges into
-  // the star-cloud texture, as in a photograph -- the steep luminosity function, not a sprinkle of equal dots
   const nField = DBG.has('nofield') ? 0 : FQ[0];
-  const field = makeField({ image: mwTex?.image || null, dust: dustTex?.image || null, meta: enc, axes, count: nField, mMax: FQ[1] });
-  if (DBG.has('log')) { let h = [0,0,0,0,0,0,0,0]; for (const m of field.mag) h[Math.max(0, Math.min(7, Math.floor(m - 6)))]++; console.warn('[sky] field mags 6..13+', JSON.stringify(h), dustTex?.image?.width, mwTex?.image?.width); }
-  const N = nBSC + field.count;
-  const dir = new Float32Array(N * 3), mag = new Float32Array(N), temp = new Float32Array(N);
-  const v = new THREE.Vector3();
-  for (let i = 0; i < nBSC; i++) {
-    const o = 4 + i * 16;
-    const ra = dv.getFloat32(o, true), dec = dv.getFloat32(o + 4, true);
-    radecToThree(ra, dec, v);
-    dir[i * 3] = v.x;
-    dir[i * 3 + 1] = v.y;
-    dir[i * 3 + 2] = v.z;
-    mag[i] = dv.getFloat32(o + 8, true);
-    temp[i] = bvToTemp(dv.getFloat32(o + 12, true));
-  }
-  mergeCloseDoubles(dir, mag, temp, nBSC);
-  if (DBG.has('nobsc')) mag.fill(99, 0, nBSC);
-  dir.set(field.dir, nBSC * 3);
-  mag.set(field.mag, nBSC);
-  temp.set(field.temp, nBSC);
-
-  const geo = new THREE.InstancedBufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
-  geo.setAttribute('corner', new THREE.BufferAttribute(new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]), 2));
-  geo.setIndex([0, 1, 2, 0, 2, 3]);
-  geo.setAttribute('aDir', new THREE.InstancedBufferAttribute(dir, 3));
-  geo.setAttribute('aMag', new THREE.InstancedBufferAttribute(mag, 1));
-  geo.setAttribute('aTemp', new THREE.InstancedBufferAttribute(temp, 1));
-  geo.instanceCount = N;
-  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e7);
+  const tGenF = performance.now();
+  const field = makeField({ image: mwTex?.image || null, dust: dustTex?.image || null, meta: enc, axes, count: nField, mMax: FQ[1], densPow: CAL.FIELD_DENS });
+  const tGen2 = performance.now();
+  if (DBG.has('log')) console.warn(`[sky] tiles ${(tGen1 - tGen0).toFixed(0)} ms, field ${(tGen2 - tGenF).toFixed(0)} ms (${field.count} stars)`);
+  if (DBG.has('log')) { let h = [0,0,0,0,0,0,0,0]; for (let i = 0; i < field.count; i++) h[Math.max(0, Math.min(7, Math.floor(field.mag[i] - 6)))]++; console.warn('[sky] field mags 6..13+', JSON.stringify(h), dustTex?.image?.width, mwTex?.image?.width); }
+  // attribute encoding shared by both: aMT = ((V - MAG0) / MAGR, ln(T / T_MIN) / ln(T_MAX / T_MIN))
+  const MAG0 = 6, MAGR = 9;
+  const tEnc = (T) => Math.log(Math.min(T_MAX, Math.max(T_MIN, T)) / T_MIN) / Math.log(T_MAX / T_MIN);
+  const quadPos = new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3);
+  const quadCorner = new THREE.BufferAttribute(new Float32Array([-1, -1, 1, -1, 1, 1, -1, 1]), 2);
+  const quadIndex = new THREE.BufferAttribute(new Uint16Array([0, 1, 2, 0, 2, 3]), 1);
+  const starGeo = (aDir, aMT, n) => {
+    const geo = new THREE.InstancedBufferGeometry();
+    geo.setAttribute('position', quadPos);
+    geo.setAttribute('corner', quadCorner);
+    geo.setIndex(quadIndex);
+    geo.setAttribute('aDir', aDir);
+    geo.setAttribute('aMT', aMT);
+    geo.instanceCount = n;
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e7);
+    return geo;
+  };
 
   const haloN = (CAL.HALO_B - 1) / (Math.PI * CAL.HALO_A * CAL.HALO_A);
   const starU = {
@@ -397,6 +406,11 @@ export async function create(ctx) {
     uSatMag: { value: CAL.SAT_MAG },
     uGrowE: { value: 2 * Math.PI * CAL.SIGMA * CAL.SIGMA },
     uGrowP: { value: CAL.GROW_P },
+    uMagC: { value: new THREE.Vector3(CAL.MAG_PIVOT, CAL.MAG_GAMMA, CAL.MAG_FAINT) },
+    uHaloSat: { value: CAL.HALO_SAT },
+    uDec: { value: new THREE.Vector4(MAG0, MAGR, Math.log(T_MIN), Math.log(T_MAX / T_MIN)) },
+    uCut: { value: CAL.CUT },
+    uWarpDim: { value: 0 },
   };
   const starMat = new THREE.ShaderMaterial({
     uniforms: starU,
@@ -407,11 +421,86 @@ export async function create(ctx) {
     depthTest: true,
     transparent: false,
   });
-  const stars = new THREE.Mesh(geo, starMat);
-  stars.name = 'stars';
-  stars.frustumCulled = false;
-  stars.renderOrder = -999;
-  group.add(stars);
+  const addStars = (geo, name) => {
+    const m = new THREE.Mesh(geo, starMat);
+    m.name = name;
+    m.frustumCulled = false;
+    m.renderOrder = -999;
+    group.add(m);
+    return m;
+  };
+
+  // catalogue stars (BSC5)
+  {
+    const dir = new Float32Array(nBSC * 3), mag = new Float32Array(nBSC), temp = new Float32Array(nBSC);
+    const v = new THREE.Vector3();
+    for (let i = 0; i < nBSC; i++) {
+      const o = 4 + i * 16;
+      radecToThree(dv.getFloat32(o, true), dv.getFloat32(o + 4, true), v);
+      dir[i * 3] = v.x;
+      dir[i * 3 + 1] = v.y;
+      dir[i * 3 + 2] = v.z;
+      mag[i] = dv.getFloat32(o + 8, true);
+      temp[i] = bvToTemp(dv.getFloat32(o + 12, true));
+    }
+    mergeCloseDoubles(dir, mag, temp, nBSC);
+    if (DBG.has('nobsc')) mag.fill(99);
+    const mt = new Float32Array(nBSC * 2);
+    for (let i = 0; i < nBSC; i++) {
+      mt[i * 2] = (mag[i] - MAG0) / MAGR;
+      mt[i * 2 + 1] = tEnc(temp[i]);
+    }
+    addStars(starGeo(new THREE.InstancedBufferAttribute(dir, 3), new THREE.InstancedBufferAttribute(mt, 2), nBSC), 'stars');
+  }
+
+  // deep field, in patches: directions as normalised int16 (6 arcsec), magnitude and temperature as bytes
+  const PG = 4, NP = 6 * PG * PG;
+  const patches = [];
+  if (field.count > 0) {
+    const fd = field.dir, n = field.count;
+    const pid = new Uint8Array(n), cnt = new Uint32Array(NP);
+    for (let i = 0; i < n; i++) {
+      const x = fd[i * 3], y = fd[i * 3 + 1], z = fd[i * 3 + 2];
+      const ax = Math.abs(x), ay = Math.abs(y), az = Math.abs(z);
+      let f, a, b, m;
+      if (ax >= ay && ax >= az) { f = x > 0 ? 0 : 1; m = ax; a = y; b = z; }
+      else if (ay >= az) { f = y > 0 ? 2 : 3; m = ay; a = x; b = z; }
+      else { f = z > 0 ? 4 : 5; m = az; a = x; b = y; }
+      // (equal-angle cube: cells of nearly equal size)
+      const u = Math.min(PG - 1, Math.floor((Math.atan(a / m) * (2 / Math.PI) + 0.5) * PG));
+      const w = Math.min(PG - 1, Math.floor((Math.atan(b / m) * (2 / Math.PI) + 0.5) * PG));
+      cnt[(pid[i] = (f * PG + w) * PG + u)]++;
+    }
+    const start = new Uint32Array(NP + 1);
+    for (let k = 0; k < NP; k++) start[k + 1] = start[k] + cnt[k];
+    const fill = start.slice(0, NP);
+    const dirS = new Int16Array(n * 3), mtS = new Uint8Array(n * 2);
+    const cx = new Float64Array(NP * 3);
+    for (let i = 0; i < n; i++) {
+      const k = pid[i], j = fill[k]++;
+      dirS[j * 3] = Math.round(fd[i * 3] * 32767);
+      dirS[j * 3 + 1] = Math.round(fd[i * 3 + 1] * 32767);
+      dirS[j * 3 + 2] = Math.round(fd[i * 3 + 2] * 32767);
+      mtS[j * 2] = Math.max(0, Math.min(255, Math.round(((field.mag[i] - MAG0) / MAGR) * 255)));
+      mtS[j * 2 + 1] = Math.round(tEnc(field.temp[i]) * 255);
+      cx[k * 3] += fd[i * 3];
+      cx[k * 3 + 1] += fd[i * 3 + 1];
+      cx[k * 3 + 2] += fd[i * 3 + 2];
+    }
+    const cdir = [], cmin = new Float64Array(NP).fill(1);
+    for (let k = 0; k < NP; k++) cdir.push(new THREE.Vector3(cx[k * 3], cx[k * 3 + 1], cx[k * 3 + 2]).normalize());
+    for (let i = 0; i < n; i++) {
+      const c = cdir[pid[i]];
+      const d = fd[i * 3] * c.x + fd[i * 3 + 1] * c.y + fd[i * 3 + 2] * c.z;
+      if (d < cmin[pid[i]]) cmin[pid[i]] = d;
+    }
+    for (let k = 0; k < NP; k++) {
+      if (!cnt[k]) continue;
+      const a = new THREE.InstancedBufferAttribute(dirS.subarray(start[k] * 3, start[k + 1] * 3), 3, true);
+      const b = new THREE.InstancedBufferAttribute(mtS.subarray(start[k] * 2, start[k + 1] * 2), 2, true);
+      patches.push({ mesh: addStars(starGeo(a, b, cnt[k]), 'starfield'), dir: cdir[k], ext: Math.acos(Math.max(-1, Math.min(1, cmin[k]))) });
+    }
+  }
 
   // ---------------------------------------------------------------- test overrides (URL)
   //   skyWarp=<0..1>        force the sky's warp amount (aberration / Doppler / streaks) in any view
@@ -459,20 +548,74 @@ export async function create(ctx) {
     }
   }
 
+  // Adaptation: an exposure that holds a sunlit world holds fewer stars. The share of the frame covered by sunlit
+  // discs (planets and moons; phase-weighted) dims the whole sky, smoothly, down to ADAPT_MIN; the empty transits
+  // between worlds get the full dark-adapted sky. A pure function of the frame.
+  const bv = new THREE.Vector3(), bm = new THREE.Vector3();
+  function litCoverage(frame) {
+    const bodies = frame.bodies;
+    const cam = frame.camera, camU = frame.camUniverse;
+    if (!bodies || !camU) return 0;
+    const tanV = Math.tan(((cam.fov ?? 35) / 2) * DEG), A = cam.aspect || 16 / 9;
+    let S = 0;
+    const one = (pos, R, kFixed) => {
+      bv.copy(pos).sub(camU);
+      const d = bv.length();
+      if (!(d > R * 1.0001)) return;
+      // lit fraction of the disc from the phase angle (Sun - body - camera); the Sun is at the universe origin
+      const cosA = (bv.x * pos.x + bv.y * pos.y + bv.z * pos.z) / (d * Math.max(pos.length(), 1e-9));
+      const k = kFixed ?? 0.5 * (1 + Math.max(-1, Math.min(1, cosA)));
+      bm.copy(bv).applyQuaternion(camInv);
+      if (bm.z > -1e-9 && d > 3 * R) return;
+      const z = Math.max(-bm.z, 0.2 * R);
+      const r = R / Math.sqrt(Math.max(d * d - R * R, 1e-12)) / tanV; // disc radius, units of the half-height
+      const x = bm.x / z / tanV, y = bm.y / z / tanV;
+      const ox = Math.max(0, Math.min(x + r, A) - Math.max(x - r, -A)), oy = Math.max(0, Math.min(y + r, 1) - Math.max(y - r, -1));
+      if (ox <= 0 || oy <= 0) return;
+      const area = Math.min(Math.PI * r * r * (ox / (2 * r)) * (oy / (2 * r)), ox * oy);
+      S += (k * area) / (4 * A);
+    };
+    for (const id in bodies) {
+      if (id === 'sun') continue;
+      const b = bodies[id];
+      if (!b || !b.object || !(b.radius > 0)) continue;
+      one(b.object.position, b.radius);
+      // Saturn's rings are bright at every phase (back-scatter, or forward-scatter in the eclipse shot)
+      if (id === 'saturn') one(b.object.position, b.radius * 2.27, 0.3);
+      if (b.moons)
+        for (const m of b.moons) {
+          if (!m.positionAt || !(m.radius > 0)) continue;
+          one(bm2.copy(b.object.position).add(m.positionAt(frame.simDays)), m.radius);
+        }
+    }
+    return S;
+  }
+  const camInv = new THREE.Quaternion(), bm2 = new THREE.Vector3();
+
   return {
     object: group,
     cal: CAL,
     update(frame) {
+      let adapt = 1;
+      if (CAL.ADAPT > 0) {
+        try {
+          camInv.copy(frame.camera.quaternion).invert();
+          adapt = Math.max(CAL.ADAPT_MIN, 1 / (1 + CAL.ADAPT * litCoverage(frame)));
+        } catch (e) {
+          adapt = 1;
+        }
+      }
+      shared.uSkyGain.value = U.uSkyGain.value * adapt;
       const res = U.uResolution.value;
       const pr = Math.max(1, U.uPixelRatio.value || 1);
       starU.uRes.value.copy(res);
       const fov = frame.camera.fov ?? 35;
-      const pix = ((2 * Math.tan((fov / 2) * DEG)) / Math.max(1, res.y)) * ARCSEC;
+      if (DBG.has('log')) console.warn(`[sky] t=${frame.t?.toFixed?.(1)} gain=${U.uSkyGain.value.toFixed(3)} adapt=${adapt.toFixed(2)} exp=${U.uExposure.value.toExponential(2)} fov=${fov.toFixed(1)} warp=${(U.uWarp.value || 0).toFixed(2)}`);
+      const pix =((2 * Math.tan((fov / 2) * DEG)) / Math.max(1, res.y)) * ARCSEC;
       const omega = pix * pix;
       const fovFactor = Math.pow(Math.tan((fov / 2) * DEG) / Math.tan((REF_FOV / 2) * DEG), 2 * (1 - CAL.FOV_Q));
       starU.uK.value = CAL.K * (OMEGA_REF / omega) * fovFactor;
       starU.uSigma.value = CAL.SIGMA * pr;
-      mwMat.uniforms.uResSig.value = CAL.SIGMA * pr;
       starU.uGrowE.value = 2 * Math.PI * starU.uSigma.value * starU.uSigma.value;
       starU.uHaloA.value = CAL.HALO_A * pr;
       starU.uHaloN.value = (CAL.HALO_B - 1) / (Math.PI * starU.uHaloA.value * starU.uHaloA.value);
@@ -480,6 +623,7 @@ export async function create(ctx) {
       const warp = Math.min(1, Math.max(0, OV.warp ?? U.uWarp.value ?? 0));
       const beta = CAL.BETA_MAX * warp;
       shared.uBeta.value = beta;
+      starU.uWarpDim.value = CAL.WARP_DIM * warp;
       if (beta > 1e-4) {
         if (OV.warp !== null) {
           if (OV.vel) radecToThree(OV.vel[0] * DEG, OV.vel[1] * DEG, shared.uVelDir.value);
@@ -517,6 +661,24 @@ export async function create(ctx) {
         if (Math.acos(Math.max(-1, Math.min(1, camFwd.dot(dir)))) < half + ext + 0.02) idx[nv++] = i;
       }
       mwMat.uniforms.uObjCount.value = nv;
+      // deep-field patches: the same test (an aberrated patch is tested where it appears, its radius scaled by the
+      // largest magnification inside it, plus the streak length)
+      for (let i = 0; i < patches.length; i++) {
+        const pt = patches[i];
+        let dir = pt.dir, ext = pt.ext;
+        if (beta > 1e-4) {
+          const cr = pt.dir.dot(vd);
+          const cp = (cr + beta) / (1 + beta * cr);
+          abDir.copy(pt.dir).addScaledVector(vd, -cr);
+          const pl = abDir.length();
+          if (pl > 1e-7) abDir.multiplyScalar(Math.sqrt(Math.max(0, 1 - cp * cp)) / pl);
+          abDir.addScaledVector(vd, cp).normalize();
+          dir = abDir;
+          const crFar = Math.cos(Math.min(Math.PI, Math.acos(Math.max(-1, Math.min(1, cr))) + ext));
+          ext = ext / (gam * (1 + beta * crFar)) + 0.12;
+        }
+        pt.mesh.visible = Math.acos(Math.max(-1, Math.min(1, camFwd.dot(dir)))) < half + ext + 0.03;
+      }
       // nebula chroma eases off in wide fields (small, saturated knots read as stickers at fov > 40)
       mwMat.uniforms.uSatObj.value = CAL.SAT_OBJ * (1 - 0.3 * Math.min(1, Math.max(0, (fov - 20) / 30)));
     },

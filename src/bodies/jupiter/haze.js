@@ -84,6 +84,7 @@ export function createHaze({ R, flat, shared }) {
       uniform vec4 uFlashR;     // glow radii (km) of the strokes 0-3; strokes 4, 5 use 600 km
       uniform int uI0;
       uniform float uSunR;
+      uniform float uGain;
       uniform vec4 uMoon[4];
       varying vec3 vPosJ;
 
@@ -164,12 +165,12 @@ export function createHaze({ R, flat, shared }) {
         // ... except at grazing view angles on the disc, where the slant haze column (not the deck lobe) is what is seen:
         // keeps the blue-grey veil over the darkened limb (Hubble, Cassini)
         float muH = hitP ? max(dot(normalize(ro + rd * t1), -rd), 0.0) : 1.0;
-        sum *= mix(1.0, mix(0.45, 1.0, smoothstep(0.45, 0.12, muH)), onDeck);
+        sum *= mix(1.0, mix(0.45, 0.62, smoothstep(0.45, 0.12, muH)), onDeck);
         od *= mix(1.0, 0.6, onDeck);
         vec3 T = exp(-od);
         // in-scatter is a radiance (phase functions per sr); the deck uses the "white Lambertian = 1" convention, i.e.
         // pi x radiance: same units here
-        sum *= uSunColor * PI;
+        sum *= uSunColor * (PI * uGain);
         // moon shadows (umbra + penumbra) on the deck point, for the deck seen through this shell and the haze above it
         vec3 pH = normalize(ro + rd * t1);
         float sh = 1.0;

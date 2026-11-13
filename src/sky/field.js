@@ -53,7 +53,7 @@ function readImage(image, W, H) {
  * @param meta    milkyway.json
  * @param axes    { gC, gY, gN } galactic axes as THREE.Vector3 in world space
  */
-export function makeField({ image, dust, meta, axes, count, mMin = 6.6, mMax = 9.8, seed = 20261102 }) {
+export function makeField({ image, dust, meta, axes, count, mMin = 6.6, mMax = 9.8, seed = 20261102, densPow = 1 }) {
   const GW = 512, GH = 128;
   const K = meta?.latK ?? 2.6, sK = Math.sinh(K);
   let rad = null;
@@ -96,7 +96,9 @@ export function makeField({ image, dust, meta, axes, count, mMin = 6.6, mMax = 9
         // star counts to V ~ 10.6 follow the starlight steeply: ~2/sq deg at the galactic poles, ~45 in Cygnus,
         // ~110 in the Large Sagittarius cloud and ~170 in Baade's window (Bahcall-Soneira-like contrast of ~50)
         const r = rad[j * GW + i];
-        dens = 0.05 + Math.pow(r / 0.02, 0.65);
+        // (densPow < 1 flattens that contrast for a deep field: in the star clouds the instanced stars would pile up
+        // several to a pixel; there the Milky Way shader's own star grain carries the crowding instead)
+        dens = Math.pow(0.05 + Math.pow(r / 0.02, 0.65), densPow);
       } else {
         const l = Math.PI * (1 - (2 * (i + 0.5)) / GW);
         dens = 0.3 + 2.5 * Math.exp(-Math.abs(bc) / 10) * (1 + 0.8 * Math.exp(-(l * l) / 0.6));

@@ -5,6 +5,7 @@
   "scripts": {
     "serve": "node tools/serve.mjs",
     "build": "node tools/build.mjs",
+    "build:web": "node tools/build.mjs --web",
     "shot": "node tools/shot.mjs"
   },
   "author": "",

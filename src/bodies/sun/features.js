@@ -21,20 +21,20 @@
 // one (0..1, one-sidedness of the penumbra), depth (Wilson depression, x 600 km), seed.
 const REGIONS = [
   // AR A: the group under the photosphere skim (lower half of the skim frame)
-  { lat: -4.4, lon: -140.4, rp: 1.25, len: 9.5, mid: 2, fol: 7, pores: 6, cores: 2, seed: 11 },
+  { lat: -4.4, lon: -140.4, rp: 1.25, len: 8.0, mid: 1, fol: 7, pores: 5, cores: 2, seed: 11 },
   // AR B: the big northern complex near disc centre (full-disc and wide views; on the disc in the limb view)
-  { lat: 16.8, lon: -118.6, rp: 1.65, len: 12.5, mid: 3, fol: 9, pores: 7, cores: 3, seed: 23 },
+  { lat: 16.8, lon: -118.6, rp: 1.75, len: 10.5, mid: 2, fol: 9, pores: 7, cores: 3, seed: 23 },
   // AR C: near the west limb of the limb view (Wilson effect, limb faculae)
-  { lat: 9.0, lon: -97.0, rp: 1.0, len: 6.0, mid: 1, fol: 4, pores: 3, cores: 1, seed: 37 },
+  { lat: 9.0, lon: -97.0, rp: 1.0, len: 5.5, mid: 0, fol: 4, pores: 3, cores: 1, seed: 37 },
   // AR D: southern group, lower left of the full disc
-  { lat: -15.8, lon: -163.0, rp: 0.85, len: 6.5, mid: 1, fol: 4, pores: 3, cores: 2, seed: 41 },
+  { lat: -15.8, lon: -163.0, rp: 0.9, len: 5.5, mid: 0, fol: 4, pores: 3, cores: 2, seed: 41 },
   // AR E: near the east limb of the full disc
   { lat: -21.0, lon: 157.0, rp: 0.75, len: 4.5, mid: 0, fol: 3, pores: 2, cores: 1, seed: 53 },
   // AR F: a small, decaying northern group
   { lat: 23.5, lon: -158.5, rp: 0.42, len: 3.2, mid: 0, fol: 2, pores: 3, cores: 1, seed: 61 },
   // far hemisphere (for other camera directions)
-  { lat: 12.0, lon: 22.0, rp: 1.25, len: 7.5, mid: 1, fol: 5, pores: 3, cores: 2, seed: 71 },
-  { lat: -14.0, lon: 62.0, rp: 0.95, len: 6.0, mid: 1, fol: 3, pores: 2, cores: 1, seed: 83 },
+  { lat: 12.0, lon: 22.0, rp: 1.3, len: 7.0, mid: 1, fol: 5, pores: 4, cores: 2, seed: 71 },
+  { lat: -14.0, lon: 62.0, rp: 0.95, len: 5.5, mid: 0, fol: 4, pores: 3, cores: 1, seed: 83 },
   { lat: 18.0, lon: 86.0, rp: 0.7, len: 4.5, mid: 0, fol: 3, pores: 2, cores: 1, seed: 97 },
   { lat: -9.0, lon: -22.0, rp: 0.8, len: 5.0, mid: 1, fol: 3, pores: 2, cores: 1, seed: 101 },
 ];
@@ -74,28 +74,51 @@ function makeGroup(G) {
     }
     return null;
   };
-  // intermediate spots along the axis, offset laterally by 20-40 % of the spacing
-  for (let i = 0; i < G.mid; i++) {
-    const t = 0.28 + (0.42 * (i + rnd())) / Math.max(G.mid, 1);
-    const rp = G.rp * (0.28 + 0.3 * rnd());
-    const p = tryPlace(t, [0.12 * G.len, 0.3 * G.len / Math.max(G.mid + 1, 2)], rp);
-    if (p) add(p, rp * (0.38 + 0.08 * rnd()), rp, { cores: rnd() < 0.3 ? 2 : 1, one: 0.35 + 0.5 * rnd(), depth: 0.8 });
-  }
-  // follower cluster: the largest member has a partial penumbra, the rest are small spots and pores (power law)
+  // a 2D cluster around a point on the axis (t along it): members at a random angle and distance, not in a row
+  const tryCluster = (t0, rad, rp, n = 24) => {
+    for (let k = 0; k < n; k++) {
+      const rho = rad * Math.sqrt(rnd()), phi = 6.2831853 * rnd();
+      const a = t0 * G.len + rho * Math.cos(phi), b = 0.75 * rho * Math.sin(phi);
+      const p = { lat: G.lat + a * ax[1] + b * px[1], lon: G.lon + (a * ax[0] + b * px[0]) / cl };
+      if (fits(p, rp)) return p;
+    }
+    return null;
+  };
+  // follower: one large, irregular spot (several umbrae in a shared, lopsided penumbra) off the axis end, with a
+  // swarm of small spots and pores clustered around it (power-law sizes)
+  const folT = 0.92 + 0.16 * rnd();
   for (let i = 0; i < G.fol; i++) {
     const big = i === 0;
-    const sz = big ? 0.42 + 0.15 * rnd() : 0.5 * Math.pow(rnd(), 1.6) + 0.08;
+    const sz = big ? 0.5 + 0.18 * rnd() : 0.42 * Math.pow(rnd(), 2.2) + 0.07;
     const rp = G.rp * sz;
-    const p = tryPlace(big ? 1.0 : 0.85 + 0.35 * rnd(), [0.4 * G.len, 0.2 * G.len], rp);
+    const p = big ? tryCluster(folT, 0.08 * G.len, rp) : tryCluster(folT - 0.05, (0.16 + 0.2 * rnd()) * G.len, rp);
     if (!p) continue;
     const ruDeg = rp * (0.38 + 0.12 * rnd());
     if (!big && rp < 0.3) add(p, Math.max(0.05, rp * 0.55), 0, { cores: 1 }); // a pore
-    else add(p, ruDeg, rp, { cores: big && rnd() < 0.5 ? 2 : 1, one: big ? 0.5 + 0.3 * rnd() : 0.7 + 0.3 * rnd(), depth: big ? 0.85 : 0.6 });
+    else add(p, ruDeg, rp, { cores: big ? 2 + (rnd() < 0.5 ? 1 : 0) : 1, one: big ? 0.45 + 0.3 * rnd() : 0.7 + 0.3 * rnd(), depth: big ? 0.85 : 0.6 });
   }
-  // scattered pores along the group (and around the leader)
+  // a few small satellites hugging the leader (often on its trailing side)
+  for (let i = 0; i < Math.min(2, G.mid + 1); i++) {
+    const rp = G.rp * (0.14 + 0.16 * rnd());
+    const p = tryCluster(0.12, (1.6 + 1.2 * rnd()) * G.rp, rp);
+    if (!p) continue;
+    if (rp < 0.3) add(p, Math.max(0.05, rp * 0.55), 0, { cores: 1 });
+    else add(p, rp * 0.42, rp, { cores: 1, one: 0.75 + 0.25 * rnd(), depth: 0.6 });
+  }
+  // intermediate spots: few, small, well off the axis (the middle of a group is mostly pores)
+  for (let i = 0; i < G.mid; i++) {
+    const t = 0.3 + 0.4 * rnd();
+    const rp = G.rp * (0.2 + 0.26 * rnd());
+    const p = tryPlace(t, [0.1 * G.len, 0.26 * G.len], rp);
+    if (!p) continue;
+    if (rp < 0.3) add(p, Math.max(0.05, rp * 0.55), 0, { cores: 1 });
+    else add(p, rp * (0.38 + 0.08 * rnd()), rp, { cores: 1, one: 0.5 + 0.5 * rnd(), depth: 0.7 });
+  }
+  // scattered pores: around both ends and loosely between them
   for (let i = 0; i < G.pores; i++) {
-    const p = tryPlace(rnd() * 1.1, [0.25 * G.len, 0.22 * G.len], 0.12);
-    if (p) add(p, 0.05 + 0.07 * rnd(), 0, { cores: 1 });
+    const e = rnd();
+    const p = e < 0.4 ? tryCluster(0.05, 0.3 * G.len, 0.12) : e < 0.8 ? tryCluster(folT, 0.36 * G.len, 0.12) : tryPlace(0.2 + 0.6 * rnd(), [0.2 * G.len, 0.3 * G.len], 0.12);
+    if (p) add(p, 0.04 + 0.08 * rnd() * rnd(), 0, { cores: 1 });
   }
   return out;
 }

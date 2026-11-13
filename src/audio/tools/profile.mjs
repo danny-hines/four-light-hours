@@ -1,7 +1,8 @@
 // Times the pieces of a live seek (new generation, catch-up, scheduling) in the real page.
 //   node src/audio/tools/profile.mjs
 import puppeteer from 'puppeteer-core';
-const b = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', protocolTimeout: 300000, args: ['--use-angle=d3d11', '--autoplay-policy=no-user-gesture-required'] });
+import { findChrome, ANGLE } from './chrome.mjs';
+const b = await puppeteer.launch({ executablePath: findChrome(), headless: 'new', protocolTimeout: 300000, args: [ANGLE, '--autoplay-policy=no-user-gesture-required'] });
 try {
   const p = await b.newPage();
   p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warn') console.log('[console]', m.text()); });

@@ -101,10 +101,18 @@ export class Engine {
     this.anchorCtx = 0;
     this.piano = new Map();
     this.stats = { created: 0, dropped: 0, stolen: 0, peakVoices: 0, peakByCat: {}, generations: 0, errors: 0 };
-    // formant lanes for each choir section (scaled copies of the vowel lanes)
-    const L = plan.lanes;
-    const scale = (arr, k) => (k === 1 ? arr : arr.map((v) => v * k));
-    this.sectionLanes = SECTIONS.map(([a, b, c]) => [scale(L.f1, a), scale(L.f2, b), scale(L.f3, c)]);
+    this.sectionLanesOf = new WeakMap(); // per plan (the film's, and each explore bed's)
+  }
+  // formant lanes for each choir section (scaled copies of a plan's vowel lanes)
+  sectionLanes(plan) {
+    let sl = this.sectionLanesOf.get(plan);
+    if (!sl) {
+      const L = plan.lanes;
+      const scale = (arr, k) => (k === 1 ? arr : arr.map((v) => v * k));
+      sl = SECTIONS.map(([a, b, c]) => [scale(L.f1, a), scale(L.f2, b), scale(L.f3, c)]);
+      this.sectionLanesOf.set(plan, sl);
+    }
+    return sl;
   }
 
   async init() {
@@ -219,13 +227,13 @@ export class Engine {
     return b;
   }
   // live: synthesise the piano notes the score will need in idle slices, so no note is built mid-frame
-  prewarm() {
-    const need = [...new Set(this.plan.events.filter((e) => e.type === 'piano').map((e) => Math.round(e.midi) * 2 + (e.rr || 0)))]; // events are time-sorted: first use first
+  prewarm(plan = this.plan) {
+    const need = [...new Set(plan.events.filter((e) => e.type === 'piano').map((e) => Math.round(e.midi) * 2 + (e.rr || 0)))]; // events are time-sorted: first use first
     const idle = typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 400 }) : (f) => setTimeout(f, 30);
     const step = () => {
       const m = need.shift();
       if (m === undefined) return;
-      this.pianoBuffer(m >> 1, m & 1);
+      if (!this.piano.has(m)) this.pianoBuffer(m >> 1, m & 1);
       idle(step);
     };
     idle(step);
@@ -243,9 +251,13 @@ export class Engine {
   }
 
   // ------------------------------------------------------------------------------------- generations
-  newGeneration(tStart, when, fadeIn = 0.5) {
+  // opts.plan: a generation may play another plan than the film's (an explore bed), on its own fixed clock
+  // (plan time tStart sounds at ctx time `when`); opts.gain scales the whole generation
+  newGeneration(tStart, when, fadeIn = 0.5, opts = {}) {
     const ctx = this.ctx;
-    const g = { t0: tStart, when, next: 0, nodes: [], srcs: [], bus: {}, dead: false, deadAt: Infinity, id: ++this.stats.generations };
+    const plan = opts.plan || this.plan;
+    const gain = opts.gain ?? 1;
+    const g = { t0: tStart, when, next: 0, nodes: [], srcs: [], bus: {}, dead: false, deadAt: Infinity, id: ++this.stats.generations, plan, own: opts.plan ? { t: tStart, ctx: when } : null };
     const G = (v) => {
       const n = ctx.createGain();
       n.gain.value = v;
@@ -287,8 +299,8 @@ export class Engine {
     for (const o of [g.outDry, g.outWet]) {
       o.gain.setValueAtTime(0, when);
       // equal-power fade-in (the retiring generation fades out on the complementary curve at the same instant)
-      if (fadeIn > 0.01) o.gain.setValueCurveAtTime(XFADE_IN, when, fadeIn);
-      else o.gain.setValueAtTime(1, when);
+      if (fadeIn > 0.01) o.gain.setValueCurveAtTime(gain === 1 ? XFADE_IN : XFADE_IN.map((x) => x * gain), when, fadeIn);
+      else o.gain.setValueAtTime(gain, when);
     }
     // music sums -> world tilt (shelves) -> world level -> warp duck
     const mDry = G(1),
@@ -348,7 +360,7 @@ export class Engine {
       g.bus[name] = input;
     };
     // motif duck lane (one gain per ducked bus) and carve (peaking cut) lanes
-    const L = this.plan.lanes;
+    const L = plan.lanes;
     const lanes = [];
     const motifed = (input, carve = true) => {
       let x = input;
@@ -412,7 +424,7 @@ export class Engine {
       fb.forEach((b, i) => inp.connect(b).connect(fg[i]).connect(chSum));
       inp.connect(chBody);
       brG.connect(G(0.035)).connect(inp);
-      const sl = this.sectionLanes[k];
+      const sl = this.sectionLanes(plan)[k];
       lanes.push([fb[0].frequency, sl[0]], [fb[1].frequency, sl[1]], [fb[2].frequency, sl[2]]);
       g.bus['choir' + k] = inp;
     });
@@ -503,7 +515,7 @@ export class Engine {
       [brG.gain, L.breath], [airBP.frequency, L.airFreq], [airBP.Q, L.airQ], [airG.gain, L.airGain], [rumLP.frequency, L.rumbleCut], [rumG.gain, L.rumbleGain],
     );
     this.startLanes(g, lanes, tStart, when);
-    g.next = lowerBound(this.plan.events, tStart);
+    g.next = lowerBound(plan.events, tStart);
     this.gens.push(g);
     this.catchUp(g, tStart, when);
     return g;
@@ -538,8 +550,8 @@ export class Engine {
 
   // Resume every sustained note that should already be sounding at tStart, part-way through its envelope.
   catchUp(g, tStart, when) {
-    const ev = this.plan.events;
-    for (let i = lowerBound(ev, tStart - this.plan.maxSpan); i < ev.length && ev[i].t < tStart; i++) {
+    const ev = g.plan.events;
+    for (let i = lowerBound(ev, tStart - g.plan.maxSpan); i < ev.length && ev[i].t < tStart; i++) {
       const e = ev[i];
       if (e.end > tStart + 0.1 && CATCHUP.has(e.type)) this.play(g, e, when, tStart - e.t);
     }
@@ -551,7 +563,7 @@ export class Engine {
     // equal-power fade out over `fade`, from the instant the new generation starts fading in
     for (const o of [g.outDry, g.outWet]) {
       const p = o.gain;
-      const v0 = Math.max(0, Math.min(1, p.value));
+      const v0 = Math.max(0, Math.min(1.5, p.value));
       if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(when);
       else p.cancelScheduledValues(when);
       p.setValueAtTime(v0, when);
@@ -577,7 +589,7 @@ export class Engine {
   scheduleUntil(g, tEnd, budget = Infinity, msBudget = Infinity) {
     if (!g || g.dead) return;
     if (g.lanes && tEnd + 8 > g.laneNext / LANE_HZ) this.extendLanes(g, Math.max(tEnd, g.laneNext / LANE_HZ) + LANE_CHUNK);
-    const ev = this.plan.events;
+    const ev = g.plan.events;
     const now = this.ctx.currentTime;
     const t0 = msBudget < Infinity ? performance.now() : 0;
     let n = 0;
@@ -586,7 +598,7 @@ export class Engine {
       if (msBudget < Infinity && (n & 7) === 7 && performance.now() - t0 > msBudget) break;
       const e = ev[g.next++];
       n++;
-      let when = this.toCtx(e.t),
+      let when = g.own ? g.own.ctx + (e.t - g.own.t) : this.toCtx(e.t),
         off = 0;
       if (when < now + 0.01) {
         off = now + 0.01 - when;

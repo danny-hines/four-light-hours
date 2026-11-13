@@ -153,6 +153,8 @@ export async function create(ctx) {
       }
       shared.uGain.value = gain;
       shared.uNightLift.value = body.nightLift * (1 + 0.4 * eclDepth);
+      // the refracted / forward-scattered limb arc is the eclipse's key light: a little hotter (it blooms)
+      haze.material.uniforms.uHazeGain.value = 1 + 0.6 * eclDepth;
       shared.uSSLift.value = 1 + (1.5 * body.nightLift - 1) * (1 - eclDepth);
       // ring-sheet clip distance (see rings.js): a quarter of the distance to the nearest point of the drawn annuli
       {

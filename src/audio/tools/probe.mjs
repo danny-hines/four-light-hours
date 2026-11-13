@@ -3,13 +3,14 @@
 //   node src/audio/tools/probe.mjs [--quiet]
 // The JSON lets the composer be iterated on in plain Node:  node src/audio/tools/compose-check.mjs
 import puppeteer from 'puppeteer-core';
+import { findChrome, ANGLE } from './chrome.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const quiet = process.argv.includes('--quiet');
-const b = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=d3d11'] });
+const b = await puppeteer.launch({ executablePath: findChrome(), headless: 'new', args: [ANGLE] });
 try {
   const p = await b.newPage();
   await p.goto('http://localhost:5178/dev.html?capture=1&hud=0&only=director');

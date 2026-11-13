@@ -138,7 +138,9 @@ vec3 planetShadow(vec3 p, vec3 s, float fl) {
   float z = length(q + d * t) - 1.0;
   if (z > 0.03 + 2.0 * t * uSunAngR) return vec3(1.0);
   float pen = t * uSunAngR;
-  float H = sqrt(1.6e-6 + 0.36 * pen * pen);
+  // (wave 3: 1.6e-6 -> 1.1e-5, i.e. a ~200 km softening scale: refraction spreads the grazing rays far more than
+  //  extinction alone, and a razor-straight shadow edge across the rings read as a matte line)
+  float H = sqrt(1.1e-5 + 0.36 * pen * pen);
   vec3 T = exp(-min(vec3(0.62, 1.0, 1.75) * exp(-(z - 0.0055) / H), vec3(40.0)));
   float h = max(0.0, 0.0035 - z);
   vec3 refr = vec3(1.0, 0.40, 0.15) * 0.05 * exp(-h / (0.0045 * t + 2e-4));

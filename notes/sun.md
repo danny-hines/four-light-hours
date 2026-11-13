@@ -2,8 +2,63 @@
 
 Owner files: `src/bodies/sun.js`, `src/bodies/sun/*` (features.js, noisetex.js, photosphere.glsl.js,
 corona.glsl.js, prominence.glsl.js, point.glsl.js). No assets: everything is procedural (the noise volume is
-generated in code at start-up, ~75 ms). Screenshots: wave 2 in `shots/sun/w2/` (`base_*` = state at the start of
-wave 2, `r10_*` / `r14_*` / `film_final_*` = current); older rounds in `shots/sun/r1/`, `shots/sun/r3/`.
+generated in code at start-up, ~75 ms). Screenshots: `shots/sun/` (wave 3, see below); earlier rounds were not kept.
+
+## Wave 3 changes ("incandescent and alive": the film's first hero image, t = 10-46 s)
+
+Shots: `shots/sun/film_t{14,18,22,26,30,36,42}.png` (film frames, HUD on), `shots/sun/film_sheet.png` (t = 12..44),
+`shots/sun/far.png` (hero + far views), `shots/sun/tr_in.png` / `tr_out.png` (exposure transitions), baseline in
+`shots/base/` and `shots/sun/b0_t*.png`.
+
+1. **Display-referred hero disc (sun.js "HERO LOOK", photosphere `uHeroW/A/P/S/X`).** Post shows the disc through its
+   own exposure, an orange filter (1, .22, .022), a log contrast (1.4) and a per-channel tone curve, which rendered
+   every physically coloured disc as the flat HMI orange. The photosphere now authors the colour that should reach
+   the tone curve as a per-channel power ramp of the luminance signal L (1 = quiet disc centre),
+   D_c = LOOK_A[c] L^LOOK_P[c] with A = (8, 1.6, .3), P = (2.75, 4.0, 5.6): white-gold centre -> gold -> orange ->
+   deep orange-red limb -> near-black umbrae, and inverts post's chain on the CPU (constants mirrored in
+   `POST_HERO`; keep in sync with post.js `HERO`). Blended with the hero weight (same formula as post), so
+   planet-exposed shots, the far-field point and planet lighting keep the physical radiance (3000 x (1, .7, .36)).
+   HDR disc centre is now ~(9590, 8090, 10490), luminance ~8600 (was 3000): post's bloom gives a warm-white glow at the limb.
+   Close views (d < 2.4 R) are exposed down the ramp (`HERO_CLOSE_EXP` .76) with a gentler large-scale exponent
+   (`HERO_CLOSE_K` .65): the skim plain is a rich gold, only granule centres / faculae reach white-gold, and the
+   horizon stays glowing orange-red. Granulation rides the same ramp (`HERO_SMALL` .8): lanes go deep orange, hot
+   centres desaturate toward white (incandescent, not lemon-vs-orange). Old `HERO_CONTRAST(_SMALL)` are gone.
+2. **Large-scale structure on the disc** (hero only, `uHeroS.z`): ~100 Mm convective swells, supergranular
+   cell/network contrast that survives when granulation is sub-pixel, plage around the active regions visible on
+   the whole disc (not only at the limb). Granules are a little more domed (brighter centres).
+3. **Corona** (corona.glsl.js + sun.js gain). Display-graded: below `CORONA_EXPOSURE` the gain follows the exposure
+   (constant on-screen level in the wide, full-disc and departure shots; `CORONA_DISC` .8; x.55 when the inner
+   corona fills the frame at d < 1.5 R; the skim keeps `CORONA_CLOSE` .45 + `uSkyLift`), and post's radial hero gain
+   is undone in the shader (`uPostG`). Outside views (camera > ~1.7 R, `gOuterSky`): samples weighted toward the
+   plane of the sky (cos^4; far wings skipped, so 28 % fewer samples), fine structure from a 3-octave sky-plane
+   thread texture in (position angle, log r) with lognormal brightness, following a dipole-like field (fans from
+   the poles, leans into the streamers), drifting outward (`uTime`) with slow breathing; the 3D direction-noise
+   fine structure is off there (it projected to speckle/blotches); background falls as p^-1.5 faster than the
+   streamers (p^-0.75; stalk density raised), so helmet streamers run many radii out on black; warm innermost
+   corona -> pearl -> a trace cooler far out; polar plumes always present in the holes.
+4. **Prominences.** Deeper eclipse red (HA (1, .06, .075), thin lines (1, .27, .3) at .14), lower display level
+   (`PROM_DISP` .38, wide boost x1.8), stronger rope fragmentation and clumping, broken threads (~50 % filled,
+   shorter correlation), wider/patchier diffuse envelope (3 w, strength .11), more lognormal spread per strand,
+   strands spread further across the channel.
+5. **Chromosphere**: unresolved rim reduced to 14 % (was 40 %: it outlined the disc like a sticker), base colour
+   less pink-white, gain 1.0 (was 1.4).
+6. **Sunspots.** features.js: groups are two clumps, not rows - leader with a couple of satellites, a large
+   irregular multi-core follower with a 2D swarm of small spots and pores (power-law sizes), few intermediate
+   spots off the axis, pores around both ends; shorter groups (109 spots, <= 72 visible). Shader: second angular
+   noise (ragged outline, bundle brightness), stronger coarse radial streaks at mid range, flatter and darker
+   penumbra (I .73 -> .67; no bright inner ring / dark outer contour = no bullseye).
+
+Perf (this Mac, GPU shared with other builders, so noisy): `perf_probe --t 20,34 --seconds 3` warm 33.7 / 29.9 ms
+before, 28-30 / 22-30 ms after (vsync-quantised single samples); unthrottled playback of the real film camera
+(`only=sun,sky,post,director`, best of 3, before -> after): t14 10.0 -> 8.5, t20 9.45 -> 9.3, t26 9.45 -> 7.9,
+t34 11.1 -> 10.3, t42 5.0 -> 4.3 ms. Cold frames after seeks with `warm=1&only=sun,post`: 14-15 ms.
+Compile: +1 fetch per spot and +1 per pixel in the photosphere, 3 fetches instead of 2 + a little trig in the
+corona, constants only in the prominence program; all loops still uniform-bounded. Not re-measured on Windows/FXC
+(only Metal here: 26 ms total with a warm cache) - re-run `shader_cost.mjs` there.
+
+Dev switches added: `sunlook=Ar,Ag,Ab,Pr,Pg,Pb` (hero ramp), `sunhks=x` (granulation exponent), `sunhx=exp,k` (close
+views), `suncor=disc,close,bgFalloff,streamerGain,warmHeight,radialPower`, `sunray=bundles,rays,threads,offset`.
+(`sunhk` is gone.)
 
 ## Wave 2 changes (triage board #1-#4 + shader compile budget)
 
@@ -85,8 +140,7 @@ heliographic (lat ~+10, lon ~-144), which is what features.js is laid out around
   (photographic), granulation colorimetric.
 - Disc-centre colour (1.0, 0.70, 0.36) at unit luminance; post's `HERO.discRGB` is derived from DISC_RADIANCE 3000 x
   this colour (keep in sync).
-- Hero display contrast: luminance relative to disc centre raised to `HERO_CONTRAST` 1.9 (large scale) and
-  `HERO_CONTRAST_SMALL` 1.15 (granulation scale), gated by the same exposure track as post's HERO.
+- Hero shots: display-referred colour ramp (wave 3 item 1), gated by the same exposure track as post's HERO.
 - Granulation: animated power diagram (one loop, two passes), domain warped at three scales; Hinode/SST-like lane
   profile, DKIST-like close in; rounded corners, dark junction pockets, domes, rims, sub-granular structure, dark
   dots, exploding and fragmenting granules, grazing 3D relief, bright-point chains; footprint LOD to calibrated
@@ -99,8 +153,8 @@ heliographic (lat ~+10, lon ~-144), which is what features.js is laid out around
 **Corona** (`sun-corona`: BackSide shell of 22 R; works with the camera outside or inside)
 - Line-of-sight integral on a fixed angle grid (24 samples), K-corona (Baumbach-like background, polar holes with
   plumes, AR condensations, warped streamer belt, 10 helmet streamers with bulb / cavity / cusp / stalk), F-corona;
-  sky-plane striations seen from outside; eclipse-graded gain `min(1, (0.002/exposure)^1.15)`, eased to a faint halo
-  at disc exposures; height-graded sky in close views (`uSkyLift`). Loop arcades are compiled out
+  sky-plane thread texture seen from outside (wave 3 item 3); display-graded gain (constant on screen below
+  exposure 0.002, `(0.002/exposure)^1.15` above); height-graded sky in close views (`uSkyLift`). Loop arcades are compiled out
   (`sundefs=SUN_ARCADES` brings them back) for the compile budget.
 
 **Chromosphere** (`sun-chromosphere`, CHROMO_PASS on a 1.0185 R shell, DoubleSide + uniform face choice)
@@ -137,11 +191,25 @@ Dev-only URL switches (ignored otherwise):
   `#define SUN_DEBUGn`, so they cost nothing in normal runs; `sundebug=6` hides prominences;
 - `sunprom=i,j` only those prominences; `sunmask=n` layer mask (1 photosphere, 2 shells, 4 prominences, 8 no corona,
   16 no chromosphere);
-- `sunhk=x` / `sunhks=x` hero display contrast (large / granulation scale), `sunsky=x` skim sky profile strength,
+- `sunhks=x` granulation exponent on the hero ramp, `sunsky=x` skim sky profile strength (wave 3 switches above),
   `sunpe=disp,thinSat,kappa,kappaHedge,thinHedge` prominence emission, `sunwb=r,g,b`, `sunchroma=x`,
   `sundefs=A,B` shader defines (e.g. `NO_SPOTS`, `NO_GRAN`, `NO_HEDGE`, `NO_ARCH` for compile ablations).
 
 ## Known gaps
+
+Wave 3:
+- The corona in outside views is an eclipse-composite picture anchored to the sky plane: it has no parallax while the
+  camera flies in (fine at film speed), and between d = 1.2 and 1.7 R it cross-fades to the 3D model of the skim.
+  Helmet bases have no resolved loop arcades (still compiled out), so streamers read as ray fans, not closed loops.
+- Wide departure (t ~42): four streamers of similar strength make a slightly regular "X"; STREAMERS in features.js
+  could be made less symmetric for that camera.
+- Spot penumbrae at mid range can read as petals/gears (bundle streaks + ragged edge); at full-disc scale spots are
+  a few pixels and the filament texture is not resolved.
+- Mid-distance granulation (2-3 px per granule, t ~28-31) sparkles a little under the steep hero ramp.
+- The hero ramp is tied to post's HERO constants (filter, target, gamma): if post changes them the disc colour
+  shifts until `POST_HERO` in sun.js is updated.
+
+Earlier:
 
 - Prominences: much less neon, but at grazing angles (looking along an arch) the threads still line up into
   streaky ribbons, and at full-disc scale the hero arches read as loops/rings (shape variety is limited to
@@ -158,6 +226,20 @@ Dev-only URL switches (ignored otherwise):
 - Compile: photosphere ~280-300 ms, prominence ~285-315 ms; the total (~700-725 ms) has ~80 ms margin.
 
 ## Requests to integrator / director / post
+
+Wave 3:
+- Post: `HERO` (discRGB, filter, target, gamma) is mirrored in sun.js `POST_HERO`; tell the Sun if any of it changes.
+  The simplest long-term fix is a `filter: 0` / `gamma: 1` hero mode so the disc colour is authored in one place.
+- Post (bloom): the hero disc is now ~3x brighter in HDR (centre luminance ~8600, near-neutral; cap 29000 on hot granules), so
+  bloom at the limb is ~3x stronger than before. It reads as a warm glow; if it is too much in the wide shot, lower
+  BLOOM_MIX in hero shots rather than the disc.
+- Director / HUD: the corona is now bright behind the left-hand title card at t ~18-24 (white streamers under the
+  "THE SUN" block): a slightly stronger text scrim, or framing the disc a little further right, would help.
+- Director: `shot.sunCorona` still multiplies the corona gain if a shot wants it quieter (e.g. 0.6 during the title).
+- Perf tool: the first frame after the first seek with `warm=1` costs ~400 ms in the full app but 15 ms with
+  `only=sun,post`, so it is not the Sun (cause not investigated).
+
+Earlier:
 
 - Post: `HERO.discRGB` is derived from DISC_RADIANCE (3000) and DISC_CENTRE (1, 0.70, 0.36); keep in sync. Keep
   HERO.gamma at 1.4 (sun.js applies its own hero contrast).

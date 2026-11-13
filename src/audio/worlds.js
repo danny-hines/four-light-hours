@@ -2,11 +2,10 @@
 //
 // Key scheme (tonal home is D — the Sun's light and Earth's home share it, and the finale returns to it):
 //   cold open  D (open fifth)          stars fade up out of a single low D
-//   Sun        D Lydian                radiant: Dmaj9#11 / E over D — the raised 4th is the "light"
+//   Sun        D Lydian                massive and low: brass swells over a D pedal; the raised 4th is the "light"
 //   Mercury    A fifths, Bb side-slip  sparse, airless, tense: bare fifths over an A pedal slip a semitone up
 //   Venus      Bb major (bVI of D)     warm and muffled under 92 bar of CO2; ends on A7sus4, the dominant of home
-//   Earth      D major 9               the tender motif on felt piano; minor iv (Gm6) for the ache
-//   Moon       G -> D                  Earthrise: the motif sung, intimate
+//   Earth      D major (I ii IV V9)    home: the Home theme on felt piano, cello and strings; Earthrise: the theme sung
 //   Mars       E Dorian                same notes as Earth, new centre: a rusty pulse with the Dorian IV (A/E)
 //   Belt       C Lydian                suspended; granular pebbles. C shared with Jupiter
 //   Jupiter    C minor (i-bVI-bVII)    vast low brass swells; the motif in minor on the horns
@@ -24,23 +23,27 @@
 // first chord, the chord that leads into an anchor (the dominant before Earthrise, the eclipse, the pale blue
 // dot) and the cadence are always kept; the rest are kept in order of p.
 //
-// THE THEMATIC PLAN (`lines`): two themes (theory.js THEMES, contours in scale steps) and their development.
-//   A  the pale blue motif, 5 - 3' - 2' - 1' (a rising sixth that falls home by step): Earth's theme
-//   L  the light, 5 - 9 - 3' - #4' (rising fifths, then steps up to the Lydian raised fourth): the Sun's theme
-//   cold open  the seed of A (its rising sixth) on a distant bell
-//   Sun        L sung by the solo voice on the reveal, its tail falling on a bell, A's head far away on glass
-//   Mercury    L's skeleton (stacked fifths) side-slipping with the harmony: A, Bb, G; quartal glass
-//   Venus      A buried: a dark low horn under the clouds (F2 D3 C3 Bb2); the seed again over the dominant
-//   Earth      A on felt piano, its answer B; the night side's minor answer; A2 (soaring) at sunrise; the voice's
-//              first entry over Em9; A_APP (the 11th leaning on the 3rd) for piano and voice at Earthrise
-//   Mars       fragmentation: A's rising sixth alone, in time with the 84 BPM pulse; Earth's own A -> F# over D
+// THE THEMATIC PLAN. One theme carries the film: the HOME theme (theory.js TUNES), a sentence built on the pale
+// blue motif A (5 - 3' - 2' - 1', a rising sixth that falls home by step) in a rising sequence over I - ii - IV to its
+// peak, then the whole scale falling through V9 to the tonic. Beside it L, the light (5 - 9 - 3' - #4'), the Sun's.
+//   cold open  the seed of A (its rising sixth, A4 - F#5) on a distant bell
+//   Sun        L on the horns over massive low brass; then the first three notes of the Home theme (A - F# - E, left
+//              hanging) low on the horns: the first foreshadowing
+//   Mercury    L's skeleton (stacked fifths) and the theme's sixth, minor and bare (E5 - C6), on a dry piano
+//   Venus      A buried: a dark low horn under the clouds (F2 D3 C3 Bb2); the seed again on a bell into the hush
+//   Earth      HOME, whole: piano, cello, the strings taking the tune at its peak, resolving on the sunrise; an
+//              interlude (the voice's first entry); RISE at Earthrise (head, peak, left open), piano + voice + strings
+//   Mars       MARS: the theme's second step (B G F# E) spun into an 8-bar Dorian tune over the 84 BPM pulse
 //   belt       the sixth on a bell, L's skeleton on glass
-//   Jupiter    the horn call assembling itself: its head, the head a fourth higher, then A_HORN (augmented,
-//              dotted) at the cloud-top skim, riding into the departure
-//   Saturn     L on glass as the rings catch the light; A_EXT (the cadence delayed) sung at the eclipse; B2
+//   Jupiter    the horn call assembling itself: the sixth, the motif whole over bVII (F D C Bb), then A_HORN
+//              (augmented, dotted, in C minor) at the cloud-top skim, riding into the departure
+//   Saturn     L on glass as the rings catch the light; ECLIPSE: the Home theme in E for solo soprano and glass, to
+//              C#6, a deceptive cadence and an echo
 //   Uranus     quartal bell fragments and INV (A upside down) on cold rotating bells
-//   Neptune    A_BROKEN (stops on the 2nd, unresolved) alone on a high piano; a distant voice; L's skeleton
-//   finale     L's skeleton over G, the night side's answer, A whole after the real V -> I, END over home
+//   Neptune    NEPTUNE: the theme's first step in B minor, then on G, stopping on the raised fourth: alone on a high
+//              piano; a distant voice; L's skeleton as the camera turns back toward the Sun
+//   finale     FINALE_A: the theme's first two steps alone on the piano over IV and ii (the tonic withheld);
+//              FINALE on the pale blue dot: the theme whole, transformed (piano, voice, strings, horn), home
 // compose-check / render.mjs assert: no stretch > 40 s without a melodic event, < 50% of motif statements in
 // one rhythm, no melody note a semitone / minor ninth against the harmony, no voicing rub below C5.
 // Line fields: at (written chord index, or 'cad'), delay (s into it), theme, from, scale, inst (piano | voice |
@@ -102,42 +105,45 @@ export const WORLDS = {
   },
 
   sun: {
-    label: 'The Sun — D Lydian radiant swell, solar p-modes',
+    label: 'The Sun — D Lydian, massive and low: brass swells over a deep pedal, solar p-modes',
     key: { tonic: 'D4', mode: 'major' },
     chordDur: 9,
     prog: [
       { name: 'Dmaj9#11', bass: 'D2', pcs: 'F# C# G# E A', w: 2 },
       { name: 'E/D', bass: 'D2', pcs: 'E G# B F#', w: 1.5, p: 3 },
       { name: 'C#m11', bass: 'C#2', pcs: 'E G# B F#', w: 1.5, p: 2 },
-      { name: 'Bm9', bass: 'B1', pcs: 'D A C# F# B', w: 1.5, p: 2.5 },
+      { name: 'Bm9', bass: 'B1', pcs: 'D A C# F#', w: 1.5, p: 2.5 },
       { name: 'Dmaj9#11', bass: 'D2', pcs: 'F# C# G# E A', w: 2, p: 1 },
       { name: 'E/D', bass: 'D2', pcs: 'E G# B F#', w: 2, p: 1.5 },
     ],
     cadence: { name: 'Esus4', bass: 'E2', pcs: 'A B E' },
-    // the Light theme, sung, on the Sun's reveal: rising through the Lydian to the raised fourth (held: G# is the
-    // light), its tail falling on a bell, then the head of Earth's motif heard for the first time, far away
+    // the Light theme on the horns as the disc fills the frame: rising through the Lydian to the raised fourth
+    // (held: G# is the light), its tail falling on a bell; then, over Bm9, the first three notes of the Home theme
+    // (A - F# - E: the rising sixth, one step of the fall, left hanging) low on the horns: the film's first
+    // foreshadowing of where it is going
     lines: [
-      { at: 0, delay: 2.2, theme: 'L', from: 'A4', scale: 'D lydian', inst: 'voice', beat: 1.0, role: 'theme' },
+      { at: 0, delay: 2.2, theme: 'L', from: 'A3', scale: 'D lydian', inst: 'horn', beat: 1.05, role: 'theme', vel: 2.5, bright: 0.95, inner: true },
       { at: 1, delay: 1.0, theme: 'L_TAIL', from: 'G#5', scale: 'D lydian', inst: 'bell', beat: 0.8 },
       { at: 2, delay: 1.0, theme: 'L_HEAD', from: 'C#5', scale: 'E major', inst: 'glass', beat: 0.8 },
-      { at: 3, delay: 0.8, theme: 'SIXTH', from: 'F#5', scale: 'D major', inst: 'glass', beat: 0.9 },
+      { at: 3, delay: 0.8, theme: 'A_BROKEN', from: 'A3', scale: 'D major', inst: 'horn', beat: 0.8, role: 'theme', vel: 2.1, bright: 0.9, inner: true },
       { at: 4, delay: 1.0, theme: 'L_HEAD', from: 'A5', scale: 'D lydian', inst: 'glass', beat: 0.8 },
     ],
-    reg: { centre: 63, spread: 22 },
+    reg: { lo: 40, hi: 66, centre: 53, spread: 22 },
     impact: 0.5,
-    centroid: [650, 1400], // the world's own spectral band (render.mjs checks it)
-    level: 0,
+    centroid: [280, 800], // the world's own spectral band (render.mjs checks it)
+    level: -1.2,
     arc: 3,
-    lanes: { padCut: 5200, padQ: 0.8, cutMod: [11, 0.3], wet: 1.0, vowel: ['a', 'e', 'a'], breath: 0.25, air: [0.06, 6500, 0.6], rumble: [0.03, 220], am: [0.31, 0.55], tilt: [-2, 3.5] },
+    lanes: { padCut: 2400, padQ: 0.8, cutMod: [11, 0.3], wet: 1.0, vowel: ['a', 'o', 'a'], breath: 0.2, air: [0.045, 5200, 0.6], rumble: [0.05, 200], am: [0.31, 0.55], tilt: [1.5, 0.5] },
     layers: {
-      pad: { voices: [0, 1, 2, 3, 4], wave: 'saw', detune: 11, drift: 7, lfo: 0.09, attack: 4.5, release: 6, vel: 0.85 },
-      choir: { voices: [2, 3, 4], vel: 0.55, attack: 5, release: 6, from: 0.18, to: 1 },
-      sub: { vel: 0.24, attack: 3.5, release: 6 },
-      bells: { rate: 0.6, ratio: 3.5, index: 1.6, decay: 4.5, range: [81, 98], vel: 0.4, phrase: [2, 5], gap: [0.14, 0.3] },
-      glass: { rate: 0.34, range: [86, 100], decay: 5, vel: 0.22 },
-      shimmer: { rate: 5, range: [93, 105], vel: 0.08 },
-      pmodes: { vel: 0.2 },
-      grains: [{ rate: 7, f: [2500, 9000], q: 3, dur: [0.012, 0.05], vel: 0.24, buf: 'white' }],
+      pad: { voices: [0, 1, 2, 3, 4], wave: 'saw', detune: 11, drift: 7, lfo: 0.09, attack: 4.5, release: 6, vel: 0.7 },
+      // the brass: low chords swelling and fading with every change of harmony
+      brass: { vel: 0.72, bright: 0.9 },
+      choir: { voices: [1, 2, 3], vel: 0.4, attack: 5, release: 6, from: 0.18, to: 1 },
+      sub: { vel: 0.42, attack: 3.5, release: 6 },
+      bells: { rate: 0.3, ratio: 3.5, index: 1.6, decay: 4.5, range: [81, 98], vel: 0.3, phrase: [2, 4], gap: [0.14, 0.3] },
+      glass: { rate: 0.2, range: [86, 100], decay: 5, vel: 0.18 },
+      pmodes: { vel: 0.26 },
+      grains: [{ rate: 7, f: [2500, 9000], q: 3, dur: [0.012, 0.05], vel: 0.2, buf: 'white' }],
     },
   },
 
@@ -159,19 +165,20 @@ export const WORLDS = {
     lines: [
       { at: 0, delay: 0.6, theme: 'L_HEAD', from: 'A4', scale: 'A dorian', inst: 'piano', beat: 0.55 },
       { at: 2, delay: 0.3, theme: 'QUARTAL_DOWN', from: 'E6', inst: 'glass', beat: 0.55 },
-      { at: 3, delay: 0.3, theme: 'L_HEAD', from: 'G4', scale: 'G major', inst: 'piano', beat: 0.55 },
+      { at: 3, delay: 0.3, theme: 'SIXTH', from: 'E5', scale: 'A minor', inst: 'piano', beat: 0.7, vel: 1.1 }, // the Home theme's sixth, minor and bare
       { at: 5, delay: 0.3, theme: 'L_HEAD', from: 'Bb4', scale: 'Bb lydian', inst: 'glass', beat: 0.55, clash: true },
     ],
-    reg: { lo: 50, hi: 62, centre: 54, nMax: 3 },
-    // arriving from the Sun: sus chords planing up by step, the last a semitone under Mercury's A (a side-slip)
-    approach: { gesture: 'riser', chords: [{ name: 'F#sus4', bass: 'F#1', pcs: 'B C# F#' }, { name: 'G#sus4', bass: 'G#1', pcs: 'C# D# G#' }] },
+    reg: { lo: 57, hi: 74, centre: 66, nMax: 3 },
+    // arriving from the Sun: its brass swelling once more through sus chords planing up by step, the last a
+    // semitone under Mercury's A (a side-slip); then the brass is gone
+    approach: { gesture: 'brass', gain: 1.5, chords: [{ name: 'F#sus4', bass: 'F#1', pcs: 'B C# F#' }, { name: 'G#sus4', bass: 'G#1', pcs: 'C# D# G#' }] },
     impact: 0.35,
     centroid: [900, 2400], // the world's own spectral band (render.mjs checks it)
     level: -0.5,
     arc: 2,
     lanes: { chorus: 0.35, padCut: 2600, padQ: 2.2, cutMod: [7, 0.3], wet: 0.6, vowel: ['i', 'e'], breath: 0.0, air: [0.07, 7000, 1.4], rumble: [0, 90], am: [5.3, 0.15], tilt: [-7, 5.5], padHP: 300 },
     layers: {
-      pad: { voices: [2, 3, 4], wave: 'hollow', detune: 4, drift: 3, lfo: 0.13, attack: 2.5, release: 5, vel: 0.7, tremolo: [6.2, 0.22], oct: 12 },
+      pad: { voices: [2, 3, 4], wave: 'hollow', detune: 4, drift: 3, lfo: 0.13, attack: 2.5, release: 5, vel: 0.7, tremolo: [6.2, 0.22] },
       glass: { rate: 0.14, range: [84, 98], decay: 5, vel: 0.32, dyad: 7 },
       ticks: { rate: 2.6, vel: 0.9 },
       whine: { vel: 0.08, midi: [88, 95] },
@@ -192,13 +199,13 @@ export const WORLDS = {
     cadence: { name: 'A7sus4', bass: 'A1', pcs: 'D G E A' },
     // Earth's motif, buried: a dark horn deep under the clouds; then the seed (A -> F#) over the dominant
     lines: [
-      { at: 0, delay: 1.2, theme: 'A_DEEP', from: 'F2', scale: 'Bb major', inst: 'horn', beat: 0.95, role: 'theme', bright: 0.6, vel: 2.6 },
+      { at: 0, delay: 1.2, theme: 'A_DEEP', from: 'F2', scale: 'Bb major', inst: 'horn', beat: 0.95, role: 'theme', bright: 0.6, vel: 2.6, inner: true },
       { at: 3, delay: 1.0, theme: 'B', from: 'G3', scale: 'Bb major', inst: 'horn', beat: 1.1, bright: 0.55, vel: 1.4 },
       { at: 'cad', delay: 1.0, theme: 'SEED', from: 'A4', scale: 'D major', inst: 'bell', beat: 0.85, ride: true }, // into the leg to Earth
     ],
-    reg: { centre: 61, hi: 67, spread: 12 },
-    // from Mercury's bare Bb fifth, the music falls away to one high tone, then the clouds: vi - IV - V9sus -> I
-    approach: { gesture: 'hush', chords: [{ name: 'Gm9', bass: 'G1', pcs: 'Bb F A D' }, { name: 'Ebmaj9', bass: 'Eb2', pcs: 'G D F Bb' }, { name: 'F9sus4', bass: 'F1', pcs: 'Bb Eb G C' }] },
+    reg: { centre: 53, hi: 59, spread: 14 },
+    // from Mercury's bare Bb fifth into the clouds on a closed, sung swell: vi - IV - V9sus -> I
+    approach: { gesture: 'choir', chords: [{ name: 'Gm9', bass: 'G1', pcs: 'Bb F A D' }, { name: 'Ebmaj9', bass: 'Eb2', pcs: 'G D F Bb' }, { name: 'F9sus4', bass: 'F1', pcs: 'Bb Eb G C' }] },
     impact: 0,
     centroid: [250, 650], // the world's own spectral band (render.mjs checks it)
     level: -3.5,
@@ -214,66 +221,72 @@ export const WORLDS = {
   },
 
   earth: {
-    label: 'Earth — D major 9 with the tender motif on felt piano',
+    label: 'Earth — D major: the Home theme, whole, on felt piano, cello and strings',
     key: { tonic: 'D4', mode: 'major' },
     chordDur: 7,
-    // first statement on arrival; the soaring variant (A2) at the sunrise over the limb; the choir takes the
-    // motif at Earthrise. Gm6/9 (the night side's minor iv) and A13sus4 (the dominant) prepare the two anchors.
-    anchors: { sunrise: 4, earthrise: 8 },
-    swell: { earthrise: 1.6 }, // dB: the anchors are the film's loudest moments
+    // The Home theme on arrival over I - ii - IV - V9, resolving on the sunrise over the limb; a quiet interlude
+    // (the night side, the voice's first entry); the theme developed at Earthrise (head, peak, left open on D/E).
+    anchors: { sunrise: 4, earthrise: 7 },
+    swell: { earthrise: 1.2 }, // dB (the tunes carry their own swell)
+    quiet: { earthrise: [-3.5, 4] }, // the hush before Earthrise
     prog: [
-      { name: 'Dmaj9', bass: 'D2', pcs: 'F# C# E A' },
-      { name: 'Gmaj9', bass: 'G1', pcs: 'B F# A D', p: 3 },
-      { name: 'Bm9', bass: 'B1', pcs: 'D A C# F#', p: 1 },
-      { name: 'Gm6/9 (night side)', bass: 'G1', pcs: 'Bb E A D', p: 2 },
-      { name: 'Dmaj9 (sunrise)', bass: 'D2', pcs: 'F# C# E A' },
+      { name: 'Dadd9', bass: 'D2', pcs: 'F# E A D' },
+      { name: 'Em11', bass: 'E2', pcs: 'G D B A' },
+      { name: 'G6/9', bass: 'G1', pcs: 'B D A E' },
+      { name: 'A9', bass: 'A1', pcs: 'C# G E B' },
+      { name: 'Dadd9 (sunrise)', bass: 'D2', pcs: 'F# E A D' },
       { name: 'Gmaj9#11', bass: 'G1', pcs: 'B F# A C#', p: 3 },
-      { name: 'Em9', bass: 'E2', pcs: 'G D F# B', p: 2 },
       { name: 'A13sus4', bass: 'A1', pcs: 'D G B E F#', p: 1 },
-      { name: 'Dmaj9 (Earthrise)', bass: 'D2', pcs: 'F# C# E A', w: 1.4 },
-      { name: 'Gmaj9#11', bass: 'G1', pcs: 'B F# A C#', p: 2 },
+      { name: 'Dadd9 (Earthrise)', bass: 'D2', pcs: 'F# E A D', w: 1.4 },
+      { name: 'G6/9', bass: 'G1', pcs: 'B D A E', p: 2 },
     ],
     cadence: { name: 'D/E', bass: 'E2', pcs: 'D F# A' },
-    // HOME on arrival (the piano, the cello answering from bar 3, contrary to it); the soaring variant at sunrise
-    // and its answer; the voice's first entry over Em9; RISE at Earthrise (piano and voice, the 11th leaning on the
-    // 3rd, carried on through the cadence)
     tunes: [
       {
-        tune: 'HOME', span: [0, 3],
-        parts: [{ part: 'mel', inst: 'piano', lh: true }, { part: 'counter', inst: 'cello', vel: 1.0 }],
+        tune: 'HOME', span: [0, 4], swell: 4.2,
+        parts: [
+          { part: 'mel', inst: 'piano', lh: true },
+          { part: 'counter', inst: 'cello', vel: 1.0 },
+          { part: 'mel', inst: 'strings', double: true, from: 2, vel: 0.9 }, // the strings take the tune at its peak
+        ],
         alt: [
           { at: 0, theme: 'A', from: 'A4', scale: 'D major', inst: 'piano', fit: true, lh: true, role: 'theme' },
-          { at: 1, theme: 'B', from: 'B4', scale: 'D major', inst: 'piano', fit: true, lh: true, role: 'theme' },
-          { at: 3, delay: 1.8, theme: 'B', from: 'Bb4', scale: 'D minor', inst: 'piano', beat: 0.95, vel: 1.2, duck: 1 },
+          { at: 2, theme: 'A', from: 'D5', scale: 'G major', inst: 'piano', fit: true, lh: true, role: 'theme' },
         ],
       },
       {
-        tune: 'RISE', span: [8, 'cad'],
-        parts: [{ part: 'mel', inst: 'piano', lh: true }, { part: 'mel', inst: 'voice', double: true, vel: 0.95 }, { part: 'counter', inst: 'cello', vel: 0.85 }],
-        alt: [
-          { at: 8, theme: 'A_APP', from: 'A4', scale: 'D major', inst: ['piano', 'voice'], fit: true, lh: true, role: 'theme' },
-          { at: 9, theme: 'B2', from: 'C#5', scale: 'D major', inst: ['piano', 'voice'], fit: true, lh: true, role: 'theme' },
+        tune: 'RISE', span: [7, 'cad'], swell: 2.5,
+        parts: [
+          { part: 'mel', inst: 'piano', lh: true },
+          { part: 'mel', inst: 'voice', double: true, vel: 0.95 },
+          { part: 'mel', inst: 'strings', double: true, from: 1, vel: 0.85 },
+          { part: 'counter', inst: 'cello', vel: 0.9 },
         ],
+        alt: [{ at: 7, theme: 'A_APP', from: 'A4', scale: 'D major', inst: ['piano', 'voice'], fit: true, lh: true, role: 'theme' }],
       },
     ],
+    // the interlude: the voice's first entry (the theme's sixth, wordless, over IV), the piano's falling step over
+    // the dominant
     lines: [
-      { at: 4, theme: 'A2', from: 'A4', scale: 'D major', inst: 'piano', fit: true, lh: true, role: 'theme' },
-      { at: 5, theme: 'B2', from: 'C#5', scale: 'D major', inst: 'piano', fit: true, lh: true, role: 'theme' },
-      { at: 6, delay: 1.2, theme: 'SIXTH', from: 'B4', scale: 'D major', inst: 'voice', beat: 1.0, vel: 1.0 },
+      { at: 5, delay: 1.0, theme: 'SIXTH', from: 'A4', scale: 'D major', inst: 'voice', beat: 1.0, vel: 0.9 },
+      { at: 6, delay: 0.8, theme: 'B', from: 'F#5', scale: 'D major', inst: 'piano', beat: 0.9, vel: 1.15 },
     ],
     reg: { centre: 54, spread: 16 },
-    // the Blue Marble: the pivots sung (a reverse-choir swell), vi - IV - V13sus -> I
-    approach: { gesture: 'choir', chords: [{ name: 'Bm9', bass: 'B1', pcs: 'D A C# F#' }, { name: 'Gmaj9', bass: 'G1', pcs: 'B F# A D' }, { name: 'A13sus4', bass: 'A1', pcs: 'D G B E F#' }] },
+    // the Blue Marble comes out of a hush: Venus's music falls away to one high A (the theme's first note) over
+    // IV - V9sus, and Earth blooms on I
+    approach: { gesture: 'hush', chords: [{ name: 'Bm9', bass: 'B1', pcs: 'D A C# F#' }, { name: 'G6/9', bass: 'G1', pcs: 'B D A E' }, { name: 'A9sus4', bass: 'A1', pcs: 'D G B E' }] },
     impact: 0.45,
     centroid: [420, 950], // the world's own spectral band (render.mjs checks it)
-    level: -0.5,
+    level: 0,
     arc: 2.5,
     lanes: { padCut: 2600, padQ: 0.8, cutMod: [17, 0.3], wet: 0.95, vowel: ['o', 'u', 'a'], breath: 0.18, air: [0.05, 5200, 0.45], rumble: [0.01, 120], am: [0.12, 0.3], tilt: [-1, 3], pianoCut: 7800 },
     layers: {
       pad: { voices: [0, 1, 2, 3, 4], wave: 'warm', detune: 9, drift: 6, lfo: 0.08, attack: 4, release: 6, vel: 0.8 },
-      choir: { voices: [2, 3, 4], vel: 0.4, attack: 5, release: 6, from: 0.45, to: 1 },
-      sub: { vel: 0.3, attack: 4, release: 6 },
-      piano: { arps: 1, vel: 0.85 },
+      choir: { voices: [2, 3, 4], vel: 0.4, attack: 5, release: 6, from: 0.3, to: 1 },
+      // the strings: a desk of bowed voices under the theme, from the arrival
+      extra: [{ type: 'bow', ens: true, voices: [1, 2, 3, 4], vel: 0.42, attack: 4, release: 6, from: 0.02 }],
+      sub: { vel: 0.34, attack: 4, release: 6 },
+      piano: { arps: 0.6, vel: 0.85 },
       bells: { rate: 0.14, ratio: 2, index: 0.9, decay: 4, range: [79, 93], vel: 0.2, phrase: [1, 3], gap: [0.3, 0.6] },
       chirps: { kind: 'rise', rate: 1.3, vel: 0.06, from: 0.35, to: 0.75 },
     },
@@ -315,24 +328,31 @@ export const WORLDS = {
     chordDur: 2.857, // one bar of 4/4 at 84 BPM: the harmony moves with the pulse
     grid: 2.857, // chord changes land on bar lines
     prog: [
-      { name: 'Em9', bass: 'E2', pcs: 'G D F# B', w: 2 },
+      { name: 'Em9', bass: 'E2', pcs: 'G D F# B' },
       { name: 'A/E (Dorian IV)', bass: 'E2', pcs: 'C# A E', p: 3 },
       { name: 'Em9', bass: 'E2', pcs: 'G D F# B', p: 1 },
       { name: 'A/E', bass: 'E2', pcs: 'C# A E', p: 1.2 },
-      { name: 'Gmaj7(6)', bass: 'G1', pcs: 'B F# D E', p: 2 },
+      { name: 'G6/9', bass: 'G1', pcs: 'B D E A', p: 2 },
       { name: 'Dadd9/F#', bass: 'F#1', pcs: 'D E A', p: 1.5 },
-      { name: 'Asus2', bass: 'A1', pcs: 'B E A', p: 2.5, w: 2 },
+      { name: 'Asus2', bass: 'A1', pcs: 'B E A', p: 2.5 },
     ],
     cadence: { name: 'Bm11', bass: 'B1', pcs: 'D A E F#', w: 2 },
-    // fragmentation: the motif's rising sixth alone, on Earth's piano, in time with the pulse (beat = 84 BPM):
-    // the Dorian major sixth over A/E, then Earth's own two notes (A -> F#) over D: Earth as an evening star
-    lines: [
-      { at: 0, delay: 2.86, theme: 'SIXTH', from: 'B4', scale: 'E dorian', inst: 'piano', beat: 0.714, vel: 1.15 },
-      { at: 1, delay: 0.0, theme: 'SIXTH', from: 'E5', scale: 'E dorian', inst: 'piano', beat: 0.714 },
-      { at: 4, delay: 0.36, theme: 'B', from: 'E5', scale: 'E dorian', inst: 'piano', beat: 0.714, vel: 1.5, duck: 1 },
-      { at: 5, delay: 0.0, theme: 'SIXTH', from: 'A4', scale: 'D major', inst: 'piano', beat: 0.714, vel: 1.1 },
-      { at: 'cad', delay: 0.36, theme: 'SIXTH_DOWN', from: 'F#5', scale: 'E dorian', inst: 'piano', beat: 0.714, vel: 2.1, duck: 1 },
+    // MARS: the Home theme's second step (B - G - F# - E, the motif in E minor) spun into an 8-bar Dorian tune on
+    // a dry piano, one bar per chord of the pulse, reaching the Dorian sixth (C#6) over A/E. If a cut leaves no
+    // room: the motif's sixths alone, in time.
+    tunes: [
+      {
+        tune: 'MARS', span: [0, 'cad'], duck: 0.6,
+        parts: [{ part: 'mel', inst: 'piano', vel: 1.15 }],
+        alt: [
+          { at: 0, delay: 0.71, theme: 'SIXTH', from: 'B4', scale: 'E dorian', inst: 'piano', beat: 0.714, vel: 1.15 },
+          { at: 1, delay: 0.0, theme: 'SIXTH', from: 'E5', scale: 'E dorian', inst: 'piano', beat: 0.714 },
+          { at: 5, delay: 0.0, theme: 'SIXTH', from: 'A4', scale: 'D major', inst: 'piano', beat: 0.714, vel: 1.1 },
+          { at: 'cad', delay: 0.36, theme: 'SIXTH_DOWN', from: 'F#5', scale: 'E dorian', inst: 'piano', beat: 0.714, vel: 2.1, duck: 1 },
+        ],
+      },
     ],
+    lines: [],
     reg: { lo: 50, centre: 62, spread: 14 },
     // out of Earth: an Aeolian cadence (bVI - bVII - i), a star-streak arpeggio on the Mars pluck accelerating
     // into the 84 BPM pulse
@@ -341,7 +361,7 @@ export const WORLDS = {
     centroid: [350, 850], // the world's own spectral band (render.mjs checks it)
     level: 4,
     arc: 2.5,
-    lanes: { padCut: 1000, padQ: 2.0, cutMod: [5.714, 0.4], wet: 0.7, vowel: ['o', 'a'], breath: 0.0, air: [0.06, 1100, 1.1], rumble: [0.02, 130], am: [0.21, 0.7], tilt: [-3, 1.5], padHP: 110 },
+    lanes: { padCut: 1000, padQ: 2.0, cutMod: [5.714, 0.4], wet: 0.5, vowel: ['o', 'a'], breath: 0.0, air: [0.06, 1100, 1.1], rumble: [0.02, 130], am: [0.21, 0.7], tilt: [-3, 1.5], padHP: 110 },
     layers: {
       pad: { voices: [1, 2, 3, 4], wave: 'saw', detune: 7, drift: 5, lfo: 0.11, attack: 3, release: 4, vel: 0.55 },
       sub: { vel: 0.12, attack: 2.5, release: 4 },
@@ -408,6 +428,7 @@ export const WORLDS = {
     lines: [
       { at: 0, delay: 3.0, theme: 'SIXTH', from: 'G4', scale: 'C minor', inst: 'horn', beat: 1.1, vel: 2.9, duck: 1 },
       { at: 1, delay: 0.8, theme: 'SIXTH', from: 'C5', scale: 'C minor', inst: 'horn', beat: 1.1, vel: 2.6, duck: 1 }, // (before Io's shadow gong)
+      { at: 2, delay: 2.2, theme: 'A', from: 'F4', scale: 'Bb major', inst: 'horn', beat: 1.25, vel: 2.5, duck: 1, role: 'theme' }, // the motif whole over bVII (F D C Bb), an answer from far off
       { at: 3, delay: 0.5, theme: 'A_HORN', from: 'G4', scale: 'C minor', inst: 'horn', beat: 1.5, role: 'theme', vel: 2.3, ride: true }, // its last note held into the leg
     ],
     reg: { lo: 40, hi: 64, centre: 51, spread: 20 },
@@ -433,28 +454,32 @@ export const WORLDS = {
     chordDur: 10,
     // the solo voice sings the motif when the Sun goes behind Saturn and the rings light up; B11 (V) prepares it
     anchors: { eclipse: 4 },
-    swell: { eclipse: 0.9 },
+    swell: { eclipse: 1.0 },
+    quiet: { eclipse: [-6, 4.5] }, // the rings dim, the music draws back; then the Sun slips behind the planet
     prog: [
       { name: 'Emaj9', bass: 'E2', pcs: 'G# D# F# B', w: 1.5 },
       { name: 'C#m11', bass: 'C#2', pcs: 'E B G# F#', p: 1 },
       { name: 'Amaj9#11', bass: 'A1', pcs: 'C# G# B D#', p: 2 },
       { name: 'B11', bass: 'B1', pcs: 'E F# C# A', p: 1.5 },
-      { name: 'Emaj9 (eclipse)', bass: 'E2', pcs: 'G# D# F# B', w: 1.5 },
-      { name: 'C#m11', bass: 'C#2', pcs: 'E B G# F#', p: 1 },
-      { name: 'Amaj9#11', bass: 'A1', pcs: 'C# G# B D#', p: 2 },
-      { name: 'B11', bass: 'B1', pcs: 'E F# C# A', p: 1.5 },
+      { name: 'Eadd9 (eclipse)', bass: 'E2', pcs: 'G# F# B E' },
+      { name: 'A6/9', bass: 'A1', pcs: 'C# E B F#' },
+      { name: 'B9', bass: 'B1', pcs: 'D# A F# C#' },
+      { name: 'C#m11 (deceptive)', bass: 'C#2', pcs: 'E B G# F#' },
     ],
     cadence: { name: 'F#9sus4', bass: 'F#1', pcs: 'B E G# C#', w: 0.5 },
     // the rings catch the light (the Light theme on glass, in A Lydian, over a high choir); at the eclipse the solo
-    // soprano sings ECLIPSE: A_EXT, then a second phrase climbing to C#6 over Amaj9#11, settling on the dominant
+    // soprano sings the Home theme in E with glass an octave above it: head, peak (C#6), the falling scale, a
+    // deceptive cadence and an echo, settling unresolved over the turn toward Titan and Uranus
     tunes: [
       {
-        tune: 'ECLIPSE', span: [4, 7],
-        parts: [{ part: 'mel', inst: 'voice', vel: 1.05 }],
+        tune: 'ECLIPSE', span: [4, 'cad'], swell: 2.5,
+        parts: [
+          { part: 'mel', inst: 'voice', vel: 1.05 },
+          { part: 'mel', inst: 'glass', double: true, oct: 1, vel: 0.8, to: 2 },
+        ],
         alt: [
           { at: 4, delay: 0.7, theme: 'A_EXT', from: 'B4', scale: 'E major', inst: 'voice', fit: true, role: 'theme' },
-          { at: 5, delay: 1.2, theme: 'B2', from: 'D#5', scale: 'E major', inst: 'voice', beat: 0.95, vel: 0.95 },
-          { at: 7, delay: 1.0, theme: 'L_HEAD', from: 'B4', scale: 'E major', inst: 'glass', beat: 0.8 },
+          { at: 5, delay: 1.0, theme: 'A', from: 'E5', scale: 'A major', inst: 'voice', beat: 0.95, role: 'theme' },
         ],
       },
     ],
@@ -503,7 +528,7 @@ export const WORLDS = {
     ],
     reg: { lo: 52, hi: 88, centre: 71 },
     // out of Saturn's F#9sus4: ice crystals accelerating (a bell streak) through iv - V sus
-    approach: { gesture: 'streak', inst: 'bell', chords: [{ name: 'Bm11 (quartal)', bass: 'B1', stack: 'F# B E A D' }, { name: 'C#sus4', bass: 'C#2', pcs: 'F# G# C#' }] },
+    approach: { gesture: 'streak', inst: 'bell', gain: 3.3, chords: [{ name: 'Bm11 (quartal)', bass: 'B1', stack: 'F# B E A D' }, { name: 'C#sus4', bass: 'C#2', pcs: 'F# G# C#' }] },
     impact: 0,
     centroid: [900, 2200], // the world's own spectral band (render.mjs checks it)
     level: 0,
@@ -531,9 +556,17 @@ export const WORLDS = {
     cadence: { name: 'Asus4', bass: 'A1', pcs: 'D E A G' },
     // the motif alone on a high piano, its sixth minor, stopping on the 2nd (unresolved); a distant voice; the
     // light's skeleton as the camera turns back toward the Sun
+    tunes: [
+      {
+        tune: 'NEPTUNE', span: [0, 1],
+        parts: [{ part: 'mel', inst: 'piano' }],
+        alt: [
+          { at: 0, delay: 1.8, theme: 'A_BROKEN', from: 'F#5', scale: 'B minor', inst: 'piano', fit: true, aug: 1.35, role: 'theme' },
+          { at: 1, theme: 'B', from: 'G5', scale: 'B minor', inst: 'piano', fit: true, aug: 1.35, role: 'theme' },
+        ],
+      },
+    ],
     lines: [
-      { at: 0, delay: 1.8, theme: 'A_BROKEN', from: 'F#5', scale: 'B minor', inst: 'piano', fit: true, aug: 1.35, role: 'theme' },
-      { at: 1, theme: 'B', from: 'G5', scale: 'B minor', inst: 'piano', fit: true, aug: 1.35, role: 'theme' },
       { at: 2, delay: 2.0, theme: 'SIXTH', from: 'B4', scale: 'B minor', inst: 'voice', beat: 1.2, vel: 0.8, duck: 1 },
       { at: 3, delay: 2.5, theme: 'B', from: 'G5', scale: 'B minor', inst: 'voice', beat: 1.1, vel: 0.6 },
       { at: 'cad', delay: 1.2, theme: 'L_HEAD', from: 'A4', scale: 'D major', inst: 'glass', beat: 0.8 },
@@ -563,35 +596,42 @@ export const WORLDS = {
     // pull back (the resolution withheld: G, Bm, the bittersweet Gm6, the A13sus4 dominant) ... the motif
     // returns whole in D exactly when Earth is found as a pale blue dot (a real V -> I) ... and the home chord
     // on the end card (IV -> I, the "amen")
-    anchors: { 'pale-blue-dot': 4, end: 6 },
+    anchors: { 'pale-blue-dot': 5 },
+    quiet: { 'pale-blue-dot': [-4, 3] },
     prog: [
       { name: 'Gmaj9', bass: 'G1', pcs: 'B F# A D' },
-      { name: 'Bm9', bass: 'B1', pcs: 'D A C# F#', p: 1 },
-      { name: 'Gm6/9', bass: 'G1', pcs: 'Bb E A D', p: 2 },
-      { name: 'A13sus4', bass: 'A1', pcs: 'D G B E F#', p: 1.5 },
-      { name: 'Dmaj9 (pale blue dot)', bass: 'D2', pcs: 'F# C# E A', w: 1.3 },
-      { name: 'Gmaj9#11', bass: 'G1', pcs: 'B F# A C#', p: 2 },
+      { name: 'Em11', bass: 'E2', pcs: 'G D B A' },
+      { name: 'Bm11', bass: 'B1', pcs: 'D A E F#', p: 2 },
+      { name: 'Gmaj9#11', bass: 'G1', pcs: 'B F# A C#', p: 1 },
+      { name: 'A9sus4', bass: 'A1', pcs: 'D G B E' },
+      { name: 'Dadd9 (pale blue dot)', bass: 'D2', pcs: 'F# E A D' },
+      { name: 'G6/9', bass: 'G1', pcs: 'B D A E' },
+      { name: 'A9', bass: 'A1', pcs: 'C# G E B' },
       { name: 'Dmaj9#11 (home, with the Sun\'s raised fourth)', bass: 'D2', pcs: 'F# C# E A G#', req: 'F# C# E G#', final: true, w: 2.5 },
     ],
     cadence: null,
-    // the light's skeleton over G; the night side's answer (Bb -> A); the motif whole after the real V -> I, with
-    // the voice; the closing phrase over the home chord
-    // FINALE: the theme over IV, the bars shortening toward the V; the motif whole on the pale blue dot with the
-    // voice joining; the Sun's raised fourth; home. The cello under all of it, strings growing from the second bar.
+    // The pull-back, intimate: the first two steps of the Home theme alone on the piano over IV and ii (the tonic
+    // withheld), the dominant swelling under the map of the whole system. On the pale blue dot the theme returns
+    // whole and transformed: its upbeat on the dominant so the sixth lands on the dot, piano, voice, strings and a
+    // horn an octave below; head, peak, the falling scale, and home on the Sun's Lydian chord.
     tunes: [
       {
-        tune: 'FINALE', span: [0, 6],
+        tune: 'FINALE_A', span: [0, 1], duck: 0.5,
+        parts: [{ part: 'mel', inst: 'piano', lh: true, vel: 0.85 }],
+        alt: [{ at: 0, delay: 1.5, theme: 'A', from: 'A4', scale: 'D major', inst: 'piano', beat: 1.0, role: 'theme' }],
+      },
+      {
+        tune: 'FINALE', span: [5, 8], swell: 3.5,
         parts: [
           { part: 'mel', inst: 'piano', lh: true, coda: true },
-          { part: 'mel', inst: 'voice', double: true, from: 4, vel: 0.95 },
+          { part: 'mel', inst: 'voice', double: true, vel: 0.95 },
+          { part: 'mel', inst: 'strings', double: true, vel: 0.9 },
+          { part: 'mel', inst: 'horn', double: true, oct: -1, vel: 1.1, to: 2 },
           { part: 'counter', inst: 'cello', vel: 1.0 },
         ],
         alt: [
-          { at: 0, delay: 1.5, theme: 'L_HEAD', from: 'D5', scale: 'G lydian', inst: 'glass', beat: 0.8 },
-          { at: 2, delay: 1.0, theme: 'B', from: 'Bb4', scale: 'D minor', inst: 'piano', beat: 1.0, vel: 1.3, duck: 1 },
-          { at: 4, theme: 'A_HOME', from: 'A4', scale: 'D major', inst: ['piano', 'voice'], fit: true, lh: true, role: 'theme' },
-          { at: 5, theme: 'B2', from: 'C#5', scale: 'D major', inst: ['piano', 'voice'], fit: true, lh: true, role: 'theme', vel: 1.2 },
-          { at: 6, delay: 0.7, theme: 'END', from: 'F#5', scale: 'D major', inst: ['piano', 'voice'], beat: 0.95, lh: true, coda: true, role: 'theme' },
+          { at: 5, theme: 'A_HOME', from: 'A4', scale: 'D major', inst: ['piano', 'voice'], fit: true, lh: true, role: 'theme' },
+          { at: 8, delay: 0.7, theme: 'END', from: 'F#5', scale: 'D major', inst: ['piano', 'voice'], beat: 0.95, lh: true, coda: true, role: 'theme' },
         ],
       },
     ],
@@ -604,13 +644,13 @@ export const WORLDS = {
     lanes: { padCut: 3000, padQ: 0.8, cutMod: [17, 0.3], wet: 1.15, vowel: ['o', 'a', 'o'], breath: 0.2, air: [0.04, 4800, 0.6], rumble: [0.01, 120], am: [0.1, 0.3], tilt: [-1, 2.5], pianoCut: 7200 },
     layers: {
       pad: { voices: [0, 1, 2, 3, 4], wave: 'warm', detune: 10, drift: 6, lfo: 0.07, attack: 4, release: 8, vel: 0.85 },
-      choir: { voices: [2, 3, 4], vel: 0.5, attack: 5, release: 8, from: 0.3, to: 1 },
+      choir: { voices: [2, 3, 4], vel: 0.5, attack: 4, release: 8, from: 'pale-blue-dot-3', to: 1 },
       sub: { vel: 0.36, attack: 4, release: 8 },
-      piano: { arps: 0.5, vel: 0.95 },
+      piano: { arps: 0, vel: 0.95 },
       bells: { rate: 0.14, ratio: 3.5, index: 1.2, decay: 5, range: [81, 96], vel: 0.18, phrase: [1, 3], gap: [0.3, 0.6] },
       glass: { rate: 0.1, range: [86, 98], decay: 7, vel: 0.14, from: 0.6 },
       // the strings: a desk of bowed voices growing under the return
-      extra: [{ type: 'bow', ens: true, voices: [1, 2, 3, 4], vel: 0.45, attack: 5, release: 7, from: 0.12 }],
+      extra: [{ type: 'bow', ens: true, voices: [1, 2, 3, 4], vel: 0.5, attack: 4, release: 7, from: 'pale-blue-dot-5' }],
     },
   },
 
@@ -630,9 +670,56 @@ export const WORLDS = {
     layers: {
       pad: { voices: [1, 2, 3], wave: 'soft', detune: 9, drift: 6, lfo: 0.06, attack: 4, release: 6, vel: 0.6 },
       sub: { vel: 0.19, attack: 4, release: 6 },
+      glass: { rate: 0.06, range: [78, 93], decay: 8, vel: 0.12 },
+      grains: [{ rate: 1.6, f: [4200, 10000], q: 9, dur: [0.03, 0.1], vel: 0.05, buf: 'white' }],
     },
   },
 };
+
+// Worlds that have no chapter of their own in the film but can be explored (score.js setExplore): Titan under its
+// orange haze (Saturn's harmony, muffled and warm, no ring glitter) and Triton (Neptune's, colder and thinner, with
+// far-off ice bells). The transit bed (unknown bodies, deep space) carries the theme's seed on a distant bell.
+WORLDS.titan = {
+  ...WORLDS.saturn,
+  label: 'Titan — Saturn\'s harmony under an orange haze',
+  prog: WORLDS.saturn.prog.slice(0, 4),
+  anchors: {},
+  swell: {},
+  quiet: {},
+  tunes: [],
+  lines: [
+    { at: 0, delay: 2.0, theme: 'SIXTH', from: 'B4', scale: 'E major', inst: 'voice', beat: 1.1, vel: 0.8 },
+    { at: 2, delay: 1.0, theme: 'L', from: 'E5', scale: 'A lydian', inst: 'glass', beat: 0.8 },
+  ],
+  reg: { centre: 57, spread: 14 },
+  centroid: [250, 800],
+  level: -2,
+  lanes: { ...WORLDS.saturn.lanes, chorus: 0.8, padCut: 900, padQ: 1.2, wet: 1.15, vowel: ['u', 'o', 'u'], breath: 0.15, air: [0.035, 2400, 0.7], rumble: [0.03, 150], tilt: [1, -3] },
+  layers: {
+    pad: { voices: [0, 1, 2, 3], wave: 'warm', detune: 11, drift: 8, lfo: 0.05, attack: 6, release: 8, vel: 0.8 },
+    choir: { voices: [1, 2, 3], vel: 0.45, attack: 6, release: 8, from: 0.0, to: 1 },
+    sub: { vel: 0.3, attack: 5, release: 7 },
+    glass: { rate: 0.08, range: [76, 90], decay: 7, vel: 0.12 },
+    grains: [{ rate: 1.2, f: [400, 1100], q: 10, dur: [0.08, 0.3], vel: 0.05, buf: 'pink' }],
+  },
+};
+WORLDS.triton = {
+  ...WORLDS.neptune,
+  label: 'Triton — Neptune\'s harmony, colder and thinner; far-off ice bells',
+  reg: { lo: 45, hi: 69, centre: 57, spread: 19 },
+  centroid: [300, 1100],
+  level: -2,
+  lanes: { ...WORLDS.neptune.lanes, padCut: 1300, padQ: 0.9, wet: 1.25, vowel: ['i', 'u'], air: [0.045, 7800, 1.1], rumble: [0.008, 90], tilt: [-2, 1], padHP: 120 },
+  layers: {
+    pad: { voices: [0, 1, 2, 3], wave: 'hollow', detune: 6, drift: 5, lfo: 0.05, attack: 6, release: 8, vel: 0.7 },
+    sub: { vel: 0.16, attack: 6, release: 8 },
+    piano: { arps: 0, vel: 0.5 },
+    bells: { rate: 0.1, ratio: 3.5, index: 1.6, decay: 7, range: [79, 95], vel: 0.16, phrase: [1, 3], gap: [0.4, 0.9] },
+    glass: { rate: 0.1, range: [86, 98], decay: 8, vel: 0.1 },
+    grains: [{ rate: 0.8, f: [2500, 7000], q: 14, dur: [0.2, 0.8], vel: 0.05, buf: 'white' }],
+  },
+};
+WORLDS.transit.exploreLines = [{ at: 'pivot', delay: 4, theme: 'SEED', from: 'A4', scale: 'D major', inst: 'bell', beat: 0.95 }];
 
 // Named film cues (director.audioCues / shot.audio.cue) -> small musical accents, voiced from the chord
 // sounding at that moment (see generateAccents in composer.js).

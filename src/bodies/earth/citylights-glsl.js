@@ -25,7 +25,7 @@ vec3 cityLights(vec3 pb, float M, float Mt, Footprint fpc) {
   vec3 col = mix(SODIUM, LED, pLED);
   float w = 1.0;
   if (uDetail > 0.0 && M > 0.0) {
-    float carpet = smoothstep(0.45, 0.95, Mt) * 0.55;
+    float carpet = smoothstep(0.5, 1.0, Mt) * 0.3;        // (0.55 painted downtowns as flat white patches)
     float road = pow(1.0 - abs(tn(pb * 640.0).x), 5.0);         // ridged network of arterial roads
     vec4 acc = vec4(0.0);
     float F = 640.0, sigL = 0.2, fade = 0.0, pOn = 1.0, pBase = 1.0, nrm = 1.0, seed = 3.7;

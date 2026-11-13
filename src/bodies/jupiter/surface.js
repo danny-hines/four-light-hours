@@ -59,6 +59,11 @@ const float KB = 0.35;
 const vec3 LUMW = vec3(0.2126, 0.7152, 0.0722);
 const float ZY = 0.6;     // N-S scale of the zonal tile relative to the stretched-Mercator frame (it is already streaky)
 const float ZAMP = 1.15;  // zonal tile amplitude relative to the isotropic tile (matched variance)
+// Close range (the low skim): the tracer -> colour curve is softened so the tile's own continuous tones and filaments
+// show (a hard curve posterises a magnified tile into two-tone "marbled paper"), and the combed zonal streaks give way
+// to convective eddies. Shared by the deck (surface.js) and the detail shell (detail.js): they must agree.
+float closeGain(float fpk) { return mix(1.0, 0.6, smoothstep(60.0, 14.0, fpk)); }
+float closeLam(float fpk) { return 1.0 - 0.7 * smoothstep(60.0, 15.0, fpk); }
 
 float wrapPi(float a) { return a - TAU * floor((a + PI) / TAU); }
 vec3 sphOf(vec2 ll) { float c = cos(ll.y); return vec3(c * cos(ll.x), sin(ll.y), -c * sin(ll.x)); }
@@ -219,17 +224,28 @@ vec3 grsTexture(vec2 q, vec2 f, mat2 M, vec2 dqx, vec2 dqy, vec2 cs, float sd) {
 vec3 grsColour(vec3 cm, vec2 q, vec2 f, float tr, out float wIn) {
   float thr = f.x, rP = f.y;
   float r = length(q);
-  wIn = 1.0 - smoothstep(0.68, 1.0, rP);
-  float arm = 0.5 + 0.5 * cos(2.0 * thr + 6.0 * log(r + 0.08) + 0.9 * tr);
-  float core = 1.0 - smoothstep(0.08, 0.6, length((q - vec2(0.13, -0.07)) * vec2(1.0, 1.2)));
-  vec3 tint = mix(vec3(1.0), vec3(1.26, 0.88, 0.68), wIn);
-  tint *= mix(vec3(1.0), vec3(1.07, 0.9, 0.8), wIn * clamp(0.45 * arm + 0.6 * core, 0.0, 1.0));
+  // soft, irregular outline: the streamline tracer pushes the edge in and out (ragged flakes peeling into the collar),
+  // never a drawn ellipse
+  float rE = rP * (1.0 + 0.085 * tr) + 0.03 * sin(3.0 * thr + 1.3);
+  wIn = 1.0 - smoothstep(0.58, 1.06, rE);
+  // loose two-arm inward spiral (a tight log spiral reads as onion rings at disc scale), broken by the tracer
+  float arm = 0.5 + 0.5 * cos(2.0 * thr + 2.6 * log(r + 0.12) + 1.6 * tr);
+  arm *= smoothstep(0.12, 0.45, r);
+  float core = 1.0 - smoothstep(0.05, 0.62, length((q - vec2(0.13, -0.07)) * vec2(1.0, 1.25)));
+  vec3 tint = mix(vec3(1.0), vec3(1.25, 0.87, 0.66), wIn * (0.86 + 0.14 * tr));
+  tint *= mix(vec3(1.0), vec3(1.08, 0.88, 0.76), wIn * clamp(0.4 * arm + 0.7 * core, 0.0, 1.0));
   float L = dot(cm, LUMW);
-  float Lt = L * mix(1.0, 0.9 - 0.07 * arm - 0.06 * core, wIn);
-  float rim = smoothstep(0.8, 0.93, rP) * (1.0 - smoothstep(0.95, 1.06, rP)) * smoothstep(-0.4, 0.8, tr + 0.7 * sin(3.0 * thr + 1.0));
-  Lt *= 1.0 - 0.07 * rim;
-  Lt *= 1.0 - 0.05 * smoothstep(1.28, 1.45, rP) * (1.0 - smoothstep(1.6, 1.95, rP));
+  float Lt = L * mix(1.0, 0.9 - 0.06 * arm - 0.10 * core, wIn);
+  // outer annulus: a faintly darker brick lane, patchy (present only where the tracer says so)
+  float ann = smoothstep(0.55, 0.85, rE) * (1.0 - smoothstep(0.9, 1.08, rE));
+  Lt *= 1.0 - 0.08 * ann * smoothstep(-0.5, 0.7, tr);
+  // the Red Spot Hollow: the pale collar is not a uniform white ring. Brown SEB material wraps the north side (the
+  // "eyelid"), wisps of it are dragged around the spot, and the collar is brightest to the south and east
+  float col1 = smoothstep(0.98, 1.12, rE) * (1.0 - smoothstep(1.3, 1.75, rP));
+  float north = smoothstep(-0.25, 0.75, q.y / max(r, 1e-3));
+  Lt *= 1.0 - col1 * (0.07 + 0.12 * north) * smoothstep(-0.2, 0.9, tr + 0.5 * sin(2.0 * thr + 0.4));
   vec3 c = cm * tint;
+  c = mix(c, c * vec3(1.06, 0.97, 0.88), col1 * north * 0.6);
   return c * (Lt / max(dot(c, LUMW), 1e-4));
 }
 // Oval BA today: a pale cream-tan oval with a faint orange-tan inner ring (faded since its 2006 reddening), no dark
@@ -341,7 +357,7 @@ Deck deckPhase(vec2 ll0, float tau, vec4 p0, vec4 p1, float fp, vec2 dx, vec2 dy
       vec3 cg = grsColour(S.cFull, qv, f, trn, wIn);
       S.cFull = cg;
       // inside: deeper red-brown filaments and paler salmon-cream cloud (Juno PJ7)
-      vec3 gLo = cg * vec3(0.74, 0.6, 0.52), gHi = mix(cg * 1.25, vec3(dot(cg, LUMW) * 1.35), 0.4);
+      vec3 gLo = cg * vec3(0.70, 0.54, 0.46), gHi = mix(cg * 1.28, vec3(dot(cg, LUMW) * 1.4), 0.35);
       lo = mix(lo, gLo, wIn);
       hi = mix(hi, gHi, wIn);
     }
@@ -383,7 +399,7 @@ Deck deckPhase(vec2 ll0, float tau, vec4 p0, vec4 p1, float fp, vec2 dx, vec2 dy
     v.yz *= kap;
     // laminar regime: the zonal beta-plane tile (long streaks, meandering jets, chevron-like wave trains); at close range
     // the streaks give way to more of the isotropic eddies (the 100-km structure of the zones is convective, not combed)
-    S.lam *= 1.0 - 0.35 * smoothstep(60.0, 15.0, fp * R_KM);
+    S.lam *= closeLam(fp * R_KM);
     if (S.lam > 0.0) {
       vec2 uz = vec2(uvM.x, uvM.y * ZY) + vec2(0.31, 0.17);
       vec3 z = tileVG(uTz, uTzG, uz, vec2(gA0x.x, gA0x.y * ZY), vec2(gA0y.x, gA0y.y * ZY));
@@ -400,7 +416,7 @@ Deck deckPhase(vec2 ll0, float tau, vec4 p0, vec4 p1, float fp, vec2 dx, vec2 dy
     if (wV > 0.0) {
       vec2 gk = gT.yz / vec2(VV.z * R_KM * cphi, VV.w * R_KM);     // d/dq -> per km
       // (70 %: the rest is the generic tracer turned with the vortex, so the lanes are broken by mottled eddies)
-      S.tA = mix(S.tA, vec3(gT.x, gk) * (inBA ? 0.385 : 0.385 * 1.3), 0.55 * wV * (1.0 - 0.4 * smoothstep(0.9, 1.2, length(qv))));
+      S.tA = mix(S.tA, vec3(gT.x, gk) * (inBA ? 0.385 : 0.385 * 1.3), 0.78 * wV * (1.0 - 0.4 * smoothstep(0.9, 1.2, length(qv))));
     }
   }
   return S;
@@ -508,6 +524,7 @@ export function makeSurfaceMaterial({ uniforms }) {
       uniform vec3 uSunColor;
       uniform float uRadius;
       uniform float uTime;
+      uniform float uGain;
       varying vec3 vObj;
       varying vec3 vPosJ;
       varying vec3 vPosW;
@@ -596,6 +613,7 @@ export function makeSurfaceMaterial({ uniforms }) {
         t *= amp;
         sig *= amp;
         float g = (0.75 + 0.35 * turbv) * p0.a * mix(1.0, 0.7, zone * (1.0 - S.polar) * (1.0 - 0.6 * ezM)) * mix(1.0, 0.95, S.grsIn) * mix(1.0, 0.7, S.polar) * mix(1.0, 1.6, S.cycIn);
+        g *= closeGain(fpk);
         float fw = fwidth(t);
         g = min(g, 0.9 / max(fw, 1e-4));
         // re-centre the end-members on the local mean: hue/chroma from the neighbourhood, luminance spread split
@@ -605,7 +623,7 @@ export function makeSurfaceMaterial({ uniforms }) {
         float mRaw = clamp((Lf - Ld0) / max(Lt0 - Ld0, 1e-4), 0.0, 1.0);
         float m = 0.5 + (mRaw - 0.5) * 0.5;
         float closeK = smoothstep(70.0, 12.0, fpk) * (1.0 - 0.25 * S.grsW) * (1.0 - S.polar);
-        float Sp = max(Lt0 - Ld0, (0.05 + 0.38 * closeK + 0.17 * closeK * closeK) * Lf) * (1.0 + 0.35 * closeK);
+        float Sp = max(Lt0 - Ld0, (0.05 + 0.38 * closeK + 0.17 * closeK * closeK) * Lf) * (1.0 + 0.6 * closeK);
         float Ld = max(Lf - m * Sp, 0.2 * Lf), Lt = Lf + (1.0 - m) * Sp;
         m = (Lf - Ld) / max(Lt - Ld, 1e-4);
         S.cDk = S.cDk * (Ld / max(Ld0, 1e-4));
@@ -630,11 +648,12 @@ export function makeSurfaceMaterial({ uniforms }) {
         // streets and billows show their full ~10-15 km of relief
         float closeH = smoothstep(40.0, 8.0, fpk);
         float Hamp = mix(5.0, 13.0, closeH) * mix(1.0, 0.6, zone) * (1.0 + 0.4 * S.wake);
-        float gh = 0.45 * g;                                                  // softer than the colour curve
+        float gh = 0.45 * g / closeGain(fpk) * mix(1.0, 2.2, closeH);          // softer than the colour curve; bolder up close
         float Th = 0.5 + 0.5 * tanh(gh * (t + b));
         float dT = 0.5 * gh * (1.0 - (2.0 * Th - 1.0) * (2.0 * Th - 1.0));  // dTh/dt
         float H = Hamp * Th;
         vec2 Hg = Hamp * dT * amp * S.tA.yz * D / 0.385;
+        Hg *= inversesqrt(1.0 + dot(Hg, Hg) / 0.09);   // soft slope limit (a razor-sharp tracer front would shade as a black hairline)
 
         // ---- lighting frame
         // east in the body frame: d/dlon of (cos lon, -, -sin lon) -> (-sin lon, 0, -cos lon)
@@ -673,7 +692,13 @@ export function makeSurfaceMaterial({ uniforms }) {
         // which sit under more gas). With k < 1 the mu^(k-1) factor BRIGHTENED the sun-side limb.
         float latAbs = abs(ll0.y);
         vec3 kM = vec3(1.0, 1.05, 1.12) + 0.07 * (1.0 - zone) * (1.0 - S.polar);
-        vec3 I = alb * pow(vec3(m0), kM) * pow(vec3(max(mu, 0.02)), kM - 1.0);
+        // + a view-limb term. At the film's phase (~25 deg) a pure Lambert/Minnaert k ~ 1 deck leaves the sunward limb at
+        //   ~90 % of the disc centre (a flat decal); the real disc falls away to the limb through the absorbing gas +
+        //   haze column (methane, chromophore haze), steeper in the blue. Fades out toward the crescent, whose brightness
+        //   is the forward-scattering lobes below.
+        float cosA = dot(L, V);
+        vec3 kV = vec3(0.40, 0.47, 0.58) * smoothstep(-0.1, 0.75, cosA);
+        vec3 I = alb * pow(vec3(m0), kM) * pow(vec3(max(mu, 0.02)), kM - 1.0 + kV);
         // absorbing chromophore haze above the deck (tau_abs ~0.17 vertical in the blue, thicker over the poles): the map
         // already holds the nadir column, so only the EXCESS slant airmass darkens (view path in full, sun path half,
         // the rest of the sun path is in sunTransmit). This is what gives the disc its strong, blue-grey limb falloff.
@@ -682,7 +707,6 @@ export function makeSurfaceMaterial({ uniforms }) {
         vec3 absT = exp(-tauA * (max(amV - 1.0, 0.0) + 0.5 * max(amS - 1.0, 0.0)));
         I *= absT;
         // single scattering by the cloud particles (forward lobe): keeps albedo contrast in the crescent
-        float cosA = dot(L, V);
         float g1 = 0.62;
         float dH1 = max(1.0 + g1 * g1 + 2.0 * g1 * cosA, 1e-3);
         float pHG = (1.0 - g1 * g1) / (dH1 * sqrt(dH1));
@@ -705,7 +729,7 @@ export function makeSurfaceMaterial({ uniforms }) {
           I *= exp(-tau);
         }
 
-        vec3 rad = I * uSunColor;   // (moon shadows: detail.js; lightning: haze.js)
+        vec3 rad = I * uSunColor * uGain;   // (moon shadows and lightning: haze.js)
         // jdebug=1: tracer contrast T, 3: tracer, 7: cloud-top height
         if (abs(uDebug - 1.0) < 0.5) rad = vec3(T);
         if (abs(uDebug - 3.0) < 0.5) rad = vec3(0.5 + 0.25 * t);

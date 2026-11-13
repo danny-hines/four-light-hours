@@ -16,6 +16,9 @@ import { getNoise3D } from './earth/noise3d.js';
 
 const KM = 1 / 6371;
 
+const QS = new URLSearchParams(globalThis.location?.search || '');
+const qnum = (k, d) => (QS.has(k) ? Number(QS.get(k)) : d);
+
 export async function create(ctx) {
   const { U, assets, data, quality } = ctx;
   const Rp = data.radius;
@@ -66,6 +69,9 @@ export async function create(ctx) {
     uTimeS: U.uTime,
     uRc: { value: Rp + 6.5 * KM },
     uAirglow: { value: 0.024 },
+    // look (see the radiance pass): x = clarity (share of the nadir path radiance kept), y = print contrast,
+    // z = saturation, w = cloud brilliance
+    uLook: { value: new THREE.Vector4(qnum('eclr', 0.62), qnum('econ', 1.25), qnum('esat', 1.25), qnum('ecld', 1.0)) },
     uDebug: { value: Number(new URLSearchParams(globalThis.location?.search || "").get("earthDebug") || 0) },
     uDetail: { value: detail },
     uLoopMax: { value: 64 },
@@ -201,6 +207,7 @@ export async function create(ctx) {
   // Cloud advection (see earth/clouds-glsl.js): bounded long-term drift + two-phase flow map with period FLOW_P.
   // Pure function of the simulated time; every phase re-seeds its procedural detail while its weight is zero.
   const FLOW_P = 0.4; // days
+  const FLOW_GAIN = Number(QS.get('eflow') ?? 0.3);
   const seedVec = (k, out) => {
     const h = (x) => { const v = Math.sin(x * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
     return out.set(h(k + 0.1) * 200 - 100, h(k + 0.2) * 200 - 100, h(k + 0.3) * 200 - 100);
@@ -210,7 +217,10 @@ export async function create(ctx) {
     const drift = 0.5 * Math.tanh(rel / 0.5);
     const c = rel / FLOW_P;
     const fa = c - Math.floor(c), fb = c + 0.5 - Math.floor(c + 0.5);
-    u.uFlow.value.set(drift, (fa - 0.5) * FLOW_P, (fb - 0.5) * FLOW_P, 1 - Math.abs(2 * fa - 1));
+    // (the two phases are crossfaded copies of the map displaced by the wind: at real wind speeds they sit up to
+    // ~170 km apart at equal weight, a double exposure that blurred the map's cyclone bands and cell fields into soft
+    // blobs twice per cycle. FLOW_GAIN scales the displacement so the copies never part by more than ~2 map texels.)
+    u.uFlow.value.set(drift, (fa - 0.5) * FLOW_P * FLOW_GAIN, (fb - 0.5) * FLOW_P * FLOW_GAIN, 1 - Math.abs(2 * fa - 1));
     seedVec(Math.floor(c) * 2, u.uSeedA.value);
     seedVec(Math.floor(c + 0.5) * 2 + 1, u.uSeedB.value);
   }

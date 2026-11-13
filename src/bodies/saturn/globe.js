@@ -468,7 +468,9 @@ void main() {
   // fine zonal striations and band hues (strip R, G) at the flow-following latitude, footprint-filtered by mip
   float fpLatW = max(fpDeg, min(length(vec2(dFdx(latEffW), dFdy(latEffW))), 4.0));
   vec2 fh = textureLod(uStri, vec2(clamp((latEffW + 90.0) / 180.0, 0.0, 1.0), 0.5), log2(fpLatW * STRI_N / 180.0)).rg;
-  col *= (1.0 + fh.r) * vec3(1.0 + fh.g * 0.6, 1.0, 1.0 - fh.g * 1.2);
+  // (x1.9 / x1.7: at the old +-2-3 % the bands still read as flat fills between soft edges; Cassini's disc is a stack
+  //  of hundreds of thin streaks, pale gold to butterscotch to a faintly pink tan)
+  col *= (1.0 + 1.9 * fh.r) * vec3(1.0 + fh.g * 1.0, 1.0 - fh.g * 0.15, 1.0 - fh.g * 2.0);
 
   // cloud texture: streaks stretched along the flow, stronger in belts; the spectrum flattens below ~2 deg so the
   // deck keeps a few percent of local contrast when it fills the frame
@@ -571,8 +573,11 @@ void main() {
   float mu0 = dot(N, S);
   float mu = max(dot(N, V), 0.0);
   float mu0c = max(mu0, 0.0);
-  // Minnaert limb darkening (k ~ 0.9 in the visible)
-  float k = 0.9;
+  // Minnaert limb darkening. k must not be < 1: with pow(mu, k - 1) that BRIGHTENS the sunward limb and the globe
+  // reads as a flat disc. Saturn's continuum k ~ 1.0-1.05; the absorbing haze column adds a view-limb falloff that is
+  // steeper in the blue (the limb goes deeper tan). The view term fades out toward the crescent (forward scattering).
+  float k = 1.03;
+  vec3 limbV = pow(vec3(max(mu, 0.02)), vec3(0.24, 0.30, 0.42) * smoothstep(-0.2, 0.7, dot(S, V)));
   // cloud-top relief (derivative bump of the resolved texture): grazing sunlight near the terminator picks out
   // eddies, filaments and convective towers; the geometric terminator still bounds the light
   vec3 dPx = dFdx(P), dPy = dFdy(P);
@@ -616,7 +621,7 @@ void main() {
     }
   }
 
-  vec3 direct = col * minn * tSun * Tr * msh;
+  vec3 direct = col * minn * limbV * tSun * Tr * msh;
 
   // ringshine
   float lonS = atan(-S.z, S.x);

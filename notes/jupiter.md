@@ -9,6 +9,44 @@ Helper scripts (all in `assets-src/scripts/`):
 - `jupiter_gputime.mjs` (GPU timer) and `jupiter_moon_phases.mjs`.
 - `process_jupiter_moons.py` and `process_europa_equalize.py`.
 
+## Wave 3 (current): the film's disc and the low skim
+
+Film beats in the current cut (re-locate from frames, the cut moves): 228-232 approach, 234-242 disc with Io's shadow
+and the GRS, 243-249 low skim toward the terminator (6,800 km up at t = 246), 250-254 departure over the night side.
+Before / after: `shots/jupiter/base_t*.png` vs `shots/jupiter/film_t*.png` (`film_sheet.png`).
+
+1. **Limb darkening** (surface.js). The Minnaert k >= 1 fix was already in, but at the film's ~25 deg phase a k ~ 1 deck
+   still leaves the sunward limb at ~65-90 % of the disc centre. Added a view-limb term `pow(mu, kV)`,
+   kV = (0.40, 0.47, 0.58) RGB (absorbing gas/haze column, steeper in the blue), faded out toward the crescent
+   (`smoothstep(-0.1, 0.75, cos phase)`) so the forward-scatter crescent is untouched. Measured on the EZ row at
+   phase 25: r = 0.95 is now 37 % of the peak (was 65 %), r = 0.99 about 30 %. The haze shell's on-deck grazing
+   in-scatter is capped at 0.62 (was 1.0): the wide blue-grey "frosted rim" is now a thin bluish line.
+2. **GRS** (`grsColour`). No drawn ellipse: the outline is the streamline radius pushed in and out by the streamline
+   tracer (ragged flakes), the tight log spiral (which read as onion rings) is a loose two-arm spiral broken by the
+   tracer, the dark rim is a patchy brick annulus, and the Hollow is asymmetric (brown SEB "eyelid" wrapping the north,
+   brightest collar south and east). Streamline-texture weight 0.55 -> 0.78, deeper red / paler cream end-members.
+3. **Low skim** (surface.js + detail.js; the two programs share `closeGain` / `closeLam` and must agree).
+   - Root cause of "marbled paper": the tanh tracer->colour curve posterised a magnified octave-A tile into two tones,
+     and octaves B / C entered only through the curve's slope, i.e. only at blob edges. Now the gain is x0.6 below
+     ~14 km/px (the tile's own continuous tones show), the end-member spread is x1.6, and the fine octaves have a slope
+     floor (0.15) so swirl interiors carry filaments too.
+   - Root cause of the "worms": octave C's very steep gradient fed the relief normal. Octave C now contributes value
+     only; mesoscale (octave B) relief has its own amplitude (2.6 km per unit tracer) independent of the colour gain;
+     the deck's octave-A relief is x2.2 up close with a soft slope limit (no black hairlines at sharp fronts).
+   - Combed zonal streaks at close range: zonal-tile weight x0.3 below 15 km/px (was x0.65).
+   - **Cast shadows of the cloud masses** (detail.js): the octave-A height field (soft 20 km footprint, x3.2
+     exaggerated) probed at three distances toward the Sun, only when tan(sun elevation) < 1.1 and < 68 km/px,
+     q=high only. 4 extra fetches in one non-constant loop.
+   - **Skim exposure assist** (`uGain`, jupiter.js): up to x1.75 when the camera is within ~0.2 R of the cloud tops
+     over a low sun (pure function of camera position; exactly 1 for every disc / crescent view). Without it the
+     skim sits in the tone curve's toe. Set by `shared.uGain`; remove if the director takes over exposure there.
+4. **Io's shadow**: checked against geometry, unchanged. At t = 240 the camera is only 194,000 km up, so the scale at
+   the disc centre is 132 km/px: Io's 3,640 km umbra + penumbra is 26 px tall and 32 px wide (sun 35 deg off the
+   local vertical), which is what is drawn; the penumbra is ~620 km (4-5 px).
+
+Still open after wave 3: see Known gaps. `jdebug=20/21/22` (colour / relief / shadow layers of the detail shell) were
+the useful switches for this pass.
+
 ## Fix round 2 (third pass): what changed and why (root causes)
 
 1. **Close-range deck: one isotropic tracer everywhere (the structural gap).** Root cause: every belt and zone drew the
@@ -224,6 +262,9 @@ Cost control:
 Jupiter assets total 388 KB (budget 400 KB), of which turb_z.webp is 50 KB.
 
 ## Known gaps
+- Wave 3: the skim's depth is still albedo + shading, not parallax; no volumetric towers. The film's skim never gets
+  the Sun below ~20 deg while close, so cast shadows stay short (a few px): a lower pass along the terminator would
+  show them. Close-up GRS (dist 1.6) is soft / wood-grained; only the disc-scale spot was reworked.
 - The required skim (dist 1.08, el 0) looks into the bright EZ/NEZ at midday. It is now textured cloud (streaks, turrets,
   blue-grey gaps), but still a low-contrast cream field, as the real EZ is. The NEB and SEB skims are much stronger.
 - Festoons and hot spots are still the map's own (sharpened by the tracer). There is no procedural system with
@@ -236,6 +277,9 @@ Jupiter assets total 388 KB (budget 400 KB), of which turb_z.webp is 50 KB.
 - No visible rings, and no Io plumes.
 
 ## Requests to integrator / director
+- Wave 3: the skim (t = 243-249) would be far stronger if it ran closer to the terminator (sun 5-12 deg up at the
+  look-at point) and/or with +0.5 EV; the body now applies its own x1.0-1.75 assist there (`uGain`), tell me to drop
+  it if the director sets exposure for that beat.
 - `src/journey/film.js` hard-codes the GRS at body longitude -48.2°. That is now correct. Prefer importing
   `GRS_BODY` from `src/bodies/jupiter.js` so the two can't drift apart again.
 - If the Jupiter clock search moves the hold outside about days 8.3-10.3, check the long-clock rest table above. Rests

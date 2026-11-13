@@ -5,6 +5,55 @@ Owner files: `src/bodies/earth.js`, `src/bodies/earth/*`, `assets/earth/*`, `ass
 one browser), `gputime.mjs` (GPU timer query), `atmo-probe.mjs` (CPU port of the atmosphere march for colour tests),
 `compile-time.mjs` (shader compile time), `simdays.mjs` (director's simDays over t). Round-1 originals: `dev/*.r1.bak`.
 
+## Round 4 (film pass: "photographic" look, Earthrise)
+Judged on the film's own frames (current cut: approach t~100-114, terminator 114-118, night 118-125, sunrise ~125.6,
+Moon approach 130-138, Earthrise 138-152, pull-back 152-158). Before / after: `shots/earth/before_after_a.png`,
+`before_after_b.png`; all final frames `shots/earth/final/film_t*.png`, contact sheet `shots/earth/film_sheet.png`;
+baseline (HEAD) frames `shots/earth/base/`.
+- **Photographic look (`uLook`, radiance pass composite; `earth.js`)**. The physically exact composite read steel-blue
+  and milky after post's AgX: the Rayleigh path radiance over a black ocean is ~3x the water's own radiance
+  (`earthDebug=1` vs `2`). On the sunlit disc only (weight `dayW` from the sun elevation at the ground point): 62 % of the
+  path radiance is kept for near-vertical views (100 % at grazing views, so the limb rim, low-orbit horizons, twilight arc,
+  night side and sunrise are untouched), a print-contrast curve about mid-grey (exponent 1.25: HDR cloud tops reach
+  ~1.2-1.4 and bloom), saturation x1.25. Dev overrides `eclr= econ= esat=`. Disc stats at t=108 (sRGB, half-res):
+  ocean p10 (29,75,125) -> (2,37,84) (Apollo 17: 6,32,70); luminance p5 68 -> 34 (ref 28); p99 221 -> 233 (ref 241).
+- **Clouds at disc scale**: (a) the two-phase flow map crossfaded copies of the map up to ~170 km apart (a double
+  exposure that melted the map's cyclone arms and cell fields into blobs twice per cycle): displacement x0.3
+  (`FLOW_GAIN`, `eflow=`); (b) map -> reflectance is now `1 - exp(-3.6 m^1.8)` (the smoothstep threshold dropped the
+  thin and mid-level cloud: half the planet's cover); (c) unsharp mask of the map (radius ~6 px / 6 texels, +55 %) so
+  bands and cells stay distinct. Bright-cloud pixel fraction on the disc 0.12 -> 0.18 (Apollo frame incl. Antarctica 0.33).
+- **Clouds at 1.5-3 R (t 114-118)**: self-shadow march pre-filtered and softened (bilinear 8-bit map texels cast hard
+  dark specks into the decks at low sun); the octave-fade footprint counts the long axis of an oblique footprint more
+  (0.4 -> 0.72 of it): the rows of dashes near the limb are gone.
+- **Ocean**: clear-water reflectance bluer (0.0012, 0.0055, 0.036): royal-blue gyres instead of grey-navy.
+- **City lights**: downtown "carpet" share 0.55 -> 0.3 and core gain 2.6 -> 2.0 (big conurbations were flat white
+  patches; now point structure inside them), overall x1.2, plus a sodium-orange haze halo from two blurred mips of the
+  Black Marble.
+- **Moon, crater field (`moon-glsl.js`, rewritten profile)**:
+  - the "pads" (flat discs with a hard outline, lighter or darker than their surroundings) were every crater's influence
+    circle: the old smooth-min profile had non-zero height and slope at the cut-off, the fresh-albedo term was a uniform
+    disc, and the rim shadow was clipped at the same circle. New profile `h = Hr E(x) - Dp B(x) + peak` is C1 at the
+    cut-off (1.75 radii; radii 0.14-0.28 cell, level-0 cell 52 km): bowl `(1-x^2)^pw` (pw 1 fresh: walls steep to a
+    sharp crest; pw 2 old: rounded dish), flat floors normalised to full depth, rim/ejecta flanks `x^2 | q^2` when fresh
+    and smoothstep-shaped (rounded on both sides) when old, central peaks above ~16 km;
+  - depth and rim sharpness now degrade separately (`deep`, `fresh`): most craters are shallow rimless dimples that
+    only shade, a minority hold a shadow, a few per cent are crisp with a bright wall + ray-broken ejecta halo;
+  - a mantled crater's shadow is smaller, not fainter (heights scale with the amplitude in the shadow test; the faded
+    full-size shadow drew old craters as grey pucks);
+  - shadow fill light 3.5 % + 6 % -> 0.7 % + 2.2 % and proportional to the sun elevation: shadows are black, as in every
+    orbital photograph (at a grazing sun and high phase the lit ground itself is only ~1 %);
+  - sub-LOLA ridged relief x2.3 (shading and geometry: hummocky highlands, attached shadows at a 10 deg sun, a more
+    rugged horizon); sub-km albedo stipple replaced by 2-12 km maturity mottling.
+- **Moon, disc**: albedo exponent 0.48 -> 0.62 (highlands ~0.23, maria ~0.09, rays ~0.3: the ray systems survive),
+  near-neutral grey (r/g 1.07, b/g 0.90), phase decay exp(-0.34 a) (was 0.42: the approach crescent was charcoal).
+- **Cost**: unchanged within noise. `node src/bodies/earth/dev/abperf.mjs 78,88,112,116,126,140,150 16` (new dev
+  script: median frame ms at 3200x1800 so the GPU sets the frame time; shared GPU, run alternately on HEAD and on this
+  code, two rounds each): t=112 52.4 / 51.2 vs HEAD 52.4 / 48.2; t=116 77.6 / 80.3 vs 85.1 / 71.8; t=126 37.3 / 55.1
+  vs 56.2 / 49.1; t=140 71.1 / 100.6 vs 102.4 / 98.4; t=150 35.1 / 58.2 vs 59.9 / 59.5. No new loops, noise call sites
+  or materials (two explicit-LOD texture taps in the cloud pass, one in the city pass, a few ALU ops elsewhere).
+  **Not measured: FXC compile time** (this round was done on macOS / Metal; re-run `tools/checks/shader_cost.mjs
+  --q "only=earth,post"` on Windows - the Moon's crater body gained two `pow` and two `sin`).
+
 ## Round 3 (critic round 2 fixes)
 - **Clouds, close range (structural)**: Worley search is exact (full 3x3x3; the 2x2x2 search cut straight seams); the
   cellular octave is now a smooth Gaussian blob field over the same jittered points (random size/strength, 30 % empty
@@ -135,6 +184,8 @@ one browser), `gputime.mjs` (GPU timer query), `atmo-probe.mjs` (CPU port of the
 ## How to see it (best shots)
 
 ```bash
+node tools/shot.mjs --hud 0 --t 102,108,112,114,116,118,120,124,126,130,134,136,138,142,146,150,156 --out shots/earth/final/film.png   # the film's Earth + Moon beats
+node tools/shot.mjs --hud 0 --q "view=body&body=earth&dist=3.2&phase=25&el=10&only=earth,sky,post" --out shots/earth/disc.png
 node src/bodies/earth/dev/batch.mjs shots/earth/r3/final.txt     # all critic views + extras + film frames (one browser)
 node tools/shot.mjs --hud 0 --q "view=body&body=earth&dist=4&phase=25&el=15" --out shots/earth/approach.png
 node tools/shot.mjs --hud 0 --q "view=body&body=earth&dist=1.04&phase=180&el=74.5&fov=50&aim=sun" --out shots/earth/sunrise.png
@@ -169,19 +220,32 @@ left/below); `el=-30&look=-38,0` puts it in frame.
   time 4.8 ms), dist 1.8 disc 1.8 ms.
 
 ## Known gaps
-- Clouds are still one 2D layer with statistical sub-texel structure (dome normals give flank shading; no true
-  volumetric towers or cloud-on-cloud cast shadows beyond the 5-step height-field march; cirrus is not separate).
-- Seen from afar the terminator is a blue-grey fade with orange cloud tops; there is no strong orange band on the ground
-  itself (physically the ground just before the terminator is lit by deeply reddened but very dim sunlight, and the
-  path radiance above it is blue).
-- At 1-2 km per pixel over land the Blue Marble (~10 km texels) is still soft inside large uniform regions (the
-  sub-texel jitter only sharpens edges).
-- No highway filaments between cities (the 10 km Black Marble cannot locate them; a noise network would be fake).
-- The Moon at exposure 1 and phase 60 is physically dim (the lunar phase function at 60 deg is ~1/3 of full-Moon
-  brightness); at full phase the render matches the reference's highland brightness. Moon beats need the exposure hint.
-- Regolith micro-relief right below the camera in the 12 km Earthrise still reads slightly stippled.
+- The photographic look is a look: the sunlit disc is no longer radiometrically exact (path radiance x0.62 at nadir,
+  contrast 1.25). Set `eclr=1&econ=1&esat=1` for the physical composite.
+- No ocean glint on the hero disc: with the film's approach direction the specular point falls on East Africa (see
+  requests). The glint is in frame only at t~115-118.
+- Clouds at 1.5-3 R are believable but soft (one 20 km map + two resolved procedural octaves at 3 km / px); faint
+  ripples remain in cloud-top shading near the terminator at oblique views (the 4-texel-per-cell baked noise is only
+  C0 in its gradient); no true volumetric towers; cirrus is not separate.
+- Moon at a HIGH sun from 400-1000 km (not in the film; `shots/earth/moon_mid.png`): the crater field still reads as
+  scattered round bowls - craters have no overlap ordering (a young crater does not erase the old rim under it) and
+  no wall terraces / slumps; at a low sun (every film frame) it reads as orbital photography.
+- Crater shadows are analytic per crater; the x2.3 ridged relief has attached shadows only (no cast shadows).
+- The far side (all the film shows of the disc) has few maria: the pull-back disc at t=156 is truthfully bland.
+- At 1-2 km per pixel over land the Blue Marble (~10 km texels) is still soft inside large uniform regions.
+- No highway filaments between cities.
 
 ## Requests to integrator / director
+- **Director, Earth approach (round 4)**: rotate the approach azimuth (`E_APP.az`) ~25-35 deg toward the Sun side or
+  pick the Atlantic / Indian-Ocean face so the specular point lies on open ocean: the hero disc then gets its sun-glint
+  (the BRDF is there: `earthDebug=5`).
+- **Director, Earthrise (round 4)**: the star field is far too bright for a frame exposed for sunlit regolith and a
+  sunlit Earth (`sky` 0.55 at t0+5..tRise1): Apollo frames show a black sky. Suggest sky <= 0.12 from the descent to the
+  end of the hold. The surface now has black shadows, so +0.2..0.3 EV on the hold (EV.moon 0.35) would also sit well.
+- **Director, sunrise**: still as below - the Sun clears the limb in ~0.5 s (t 125.3 -> 125.8) and is white by 126;
+  a slower crossing with the Sun 0-1 deg up would show the reddened, flattened disc the transmittance pass produces.
+- **Post**: lunar and Earth highlights now exceed 1 (cloud tops ~1.3); nothing needed, but a slightly lower bloom
+  threshold on the Earth disc would give the clouds a photographic halation.
 - **Sky (zodiacal light)**: the zodiacal band is far too bright - a grey fog in every Earth/Moon frame, and a huge white
   glare band above the limb in the sunrise view with aim=sun (`shots/earth/r3/f_sunrise.png`, all modules, vs
   `w_sr745.png`, only=earth,sun,post). Real zodiacal light is fainter than the airglow and invisible next to a sunlit limb.

@@ -17,6 +17,7 @@ export function createControls({ root, app, capture, forceShow, onToggleHud, onT
       <div class="flh-time"><span class="cur">0:00</span><span class="tot"> / 0:00</span></div>
       <div class="flh-now"><span class="n"></span><span class="nm"></span></div>
       <div class="sp"></div>
+      <button class="flh-btn flh-explore" type="button" data-k="explore" aria-label="Explore this world (E)" title="Explore this world · E">${ICONS.explore}<span>Explore</span></button>
       <button class="flh-btn off" type="button" data-k="labels" aria-label="Show planet labels (L)" title="Planet labels · L" aria-pressed="false">${ICONS.labels}</button>
       <button class="flh-btn" type="button" data-k="mute" aria-label="Mute (M)" title="Sound · M">${ICONS.soundOn}</button>
       <button class="flh-btn" type="button" data-k="hud" aria-label="Hide titles and telemetry (H)" title="Titles and telemetry · H" aria-pressed="true">${ICONS.hud}</button>
@@ -99,6 +100,11 @@ export function createControls({ root, app, capture, forceShow, onToggleHud, onT
     lastActivity = performance.now();
   }
   function togglePlay() {
+    if (app.exploring) {
+      app.togglePlay();
+      toast(app.playing ? 'Time running' : 'Time paused');
+      return;
+    }
     if (!app.playing && duration && app.t >= duration - 0.05) app.seek(0);
     app.togglePlay();
     toast(app.playing ? '' : 'Paused');
@@ -131,6 +137,7 @@ export function createControls({ root, app, capture, forceShow, onToggleHud, onT
   btn.hud.addEventListener('click', () => onToggleHud());
   btn.labels.addEventListener('click', () => onToggleLabels());
   btn.fs.addEventListener('click', fullscreen);
+  ctl.querySelector('[data-k=explore]').addEventListener('click', () => app.enterExplore && app.enterExplore());
   document.addEventListener('fullscreenchange', () => {
     const on = !!document.fullscreenElement;
     btn.fs.innerHTML = on ? ICONS.fullscreenExit : ICONS.fullscreen;
@@ -210,11 +217,14 @@ export function createControls({ root, app, capture, forceShow, onToggleHud, onT
   window.addEventListener('click', (e) => {
     if (isSplashOpen() || ctl.contains(e.target) || (e.target.closest && e.target.closest('button'))) return;
     if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+    // a drag on the picture turned the camera (explore.js): that is not a click; and an orbiting camera has no
+    // play / pause on the picture at all
+    if (app.exploring || performance.now() - (app.lookDragAt || -1e9) < 350 || (e.target.closest && e.target.closest('.flh-x'))) return;
     clearTimeout(clickTimer);
     if (e.detail === 1) clickTimer = setTimeout(togglePlay, 230);
   });
   window.addEventListener('dblclick', (e) => {
-    if (isSplashOpen() || ctl.contains(e.target)) return;
+    if (isSplashOpen() || ctl.contains(e.target) || (e.target.closest && e.target.closest('.flh-x'))) return;
     clearTimeout(clickTimer);
     fullscreen();
   });

@@ -214,12 +214,15 @@ export async function create(ctx) {
       }
       // normalisation to one body's peak (the pale blue dot): every glint keeps its true ratio to it
       const norm = shot.glintNorm;
+      let sigN = sigU;
       if (norm && norm.id) {
         const k = list.findIndex((x) => x.id === norm.id);
         if (k >= 0 && Fv[k] > 0) {
-          const s2 = sigU * sigU + 0.0833;
-          const gN = (norm.peak * 2 * Math.PI * s2) / (Fv[k] * exposure * list[k].maxc);
           const w = Math.min(1, Math.max(0, norm.w ?? 1));
+          // (norm.sig widens every point's core for this beat: see pass 2)
+          sigN = sigU * (1 + ((norm.sig ?? 1) - 1) * w);
+          const s2 = sigN * sigN + 0.0833;
+          const gN = (norm.peak * 2 * Math.PI * s2) / (Fv[k] * exposure * list[k].maxc);
           gain = Math.exp(Math.log(Math.max(gain, 1e-9)) * (1 - w) + Math.log(gN) * w);
         }
       }
@@ -228,9 +231,16 @@ export async function create(ctx) {
         const e = list[k];
         let F = Fv[k] * gain, sz = 0, sc = sigU, hs = 3 * sigU, hf = 0;
         if (e._ok) {
+          // the normalised beat belongs to one world: no other point may out-shine it (norm.others = the largest
+          // peak any other point keeps, as a fraction of its peak; Venus, nearer the Sun, would otherwise win)
+          if (F > 0 && norm && norm.id && norm.others !== undefined && e.id !== norm.id) {
+            const capF = (norm.others * norm.peak * 2 * Math.PI * (sigN * sigN + 0.0833)) / (exposure * e.maxc);
+            const w = Math.min(1, Math.max(0, norm.w ?? 1));
+            if (F > capF) F = Math.exp(Math.log(F) * (1 - w) + Math.log(capF) * w);
+          }
           if (F > 0) {
             // the point shrinks into its disc: the core follows the disc's size as it nears the hand-over
-            sc = Math.max(sigU, 0.5 * e._rpx * pr);
+            sc = Math.max(sigN, 0.5 * e._rpx * pr);
             // a clipping point widens a little, then moves up to HALO_MAX of its light into a short halo; above
             // that it is simply bright (the bloom takes over), never a blob
             const pmax = PEAK / exposure / e.maxc; // per-luminance-unit peak allowed

@@ -71,6 +71,7 @@ export function deckShaders({ octaves = 11 } = {}) {
     uniform float uFine;      // contrast of the km-scale texture
     uniform float uRidge;      // ridged (filament) share of the 300-30 km octaves
     uniform float uFineBoost;  // extra contrast of well-resolved km-scale octaves
+    uniform float uWarpK;      // domain warp of the fine octaves by the coarse fields (1 = wave 2: marbled swirls)
     uniform sampler2D uPlan;   // baked planetary fields (R absorber/wave frame, G arcs/arc frame, B/A coarse streaks)
     uniform float uTexK;       // texels per radian of the bake (its width / 2 pi): mip level from the footprint
     varying vec3 vPos;
@@ -170,7 +171,7 @@ export function deckShaders({ octaves = 11 } = {}) {
       vec3 gq = vec3(0.0);
       // large swirls: the finer octaves are domain-warped by the coarse baked fields (planetary scale, not aligned
       // with the octaves' own gradients, so no marbled "eyes")
-      vec3 warp = vec3(0.9 * other, 0.35 * coarse, 0.9 * (coarse - other));
+      vec3 warp = uWarpK * vec3(0.9 * other, 0.35 * coarse, 0.9 * (coarse - other));
       float vPrev1 = 2.0 * coarse, vPrev2 = 2.0 * other;
       vec3 gp = vec3(0.0);
       for (int i = 3; i < OCT * uLoop; i++) {
@@ -336,6 +337,8 @@ export function deckShaders({ octaves = 11 } = {}) {
         a += 0.35 * uStreak * st * midlat + 0.9 * cells;
         // fine texture and cells are mostly cloud optical-thickness variations: near-neutral in colour
         aN = 0.65 * uStreak * st * midlat + uFine * sf * (0.35 + 0.65 * midlat) - uCellAlb * calb;
+        // (toward the limb the slant path through the haze washes the fine streaks out: no bright scratches there)
+        aN *= smoothstep(0.03, 0.4, mu);
         vec3 gt = grad - dot(grad, n) * n;
         vec3 nb = normalize(n - gt);
 
@@ -373,7 +376,8 @@ export function deckShaders({ octaves = 11 } = {}) {
         // (absorber-poor cloud - the bright collar, white streaks - is whiter, not bluer: below the zero point the
         // term turns neutral)
         float da = a - 0.4;
-        vec3 tint = exp(-cK * (max(da, 0.0) * uAbsCol + min(da, 0.0) * vec3(0.7, 0.72, 0.76) + aN * vec3(0.79, 0.8, 0.83)));
+        // (the brightening of absorber-poor cloud saturates: a thick white streak is at most ~16 % brighter than the deck)
+        vec3 tint = exp(-max(cK * (max(da, 0.0) * uAbsCol + min(da, 0.0) * vec3(0.7, 0.72, 0.76) + aN * vec3(0.79, 0.8, 0.83)), vec3(-0.15)));
         col = L * ts * tint * uSunColor;
       }
       // night side: 735 K surface glow through the clouds, darker over cool highlands (surface-fixed frame)

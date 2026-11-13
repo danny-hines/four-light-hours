@@ -18,7 +18,7 @@ export const TOP_ALT_KM = 200;
 export const HAZE = {
   aer: { tau: 0.15, H: 4.2, spec: [1.0, 1.0, 1.0] }, // cloud-top mode-2 droplets (r ~ 1 um): grey in the visible
   up: { tau: 0.12, H: 6.0, spec: [0.98, 1.0, 1.02] }, // upper haze, mode-1 (r ~ 0.25 um), thicker over the poles
-  ext: { tau: 0.18, H: 13.0, spec: [0.99, 1.0, 1.01] }, // tenuous high haze to ~150-200 km (lit far past the terminator)
+  ext: { tau: 0.24, H: 14.0, spec: [0.99, 1.0, 1.01] }, // tenuous high haze to ~150-200 km (lit far past the terminator)
   det: { tau: 0.006, h: 26, w: 3.0, spec: [1.0, 1.0, 1.0] }, // detached layer ~94 km (VEx SPICAV/SOIR, VMC limb)
   ray: { tau: 0.006, H: 4.5, spec: [0.47, 1.0, 2.35] }, // CO2 at ~200 K: H ~ 4.5 km, below the haze's own
 };

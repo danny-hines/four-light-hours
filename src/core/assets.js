@@ -3,7 +3,8 @@
 // so modules must always load through these helpers (never hard-code URLs).
 import * as THREE from 'three';
 
-const BASE = new URL('../../assets/', import.meta.url);
+// (the web build serves assets/ beside index.html and says so with __ASSET_BASE__)
+const BASE = globalThis.__ASSET_BASE__ ? new URL(globalThis.__ASSET_BASE__, document.baseURI) : new URL('../../assets/', import.meta.url);
 const pending = new Set();
 let total = 0,
   done = 0;

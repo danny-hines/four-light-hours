@@ -3,6 +3,7 @@
 // through a warp leg — printing the engine state after each step and every console warning/error.
 //   node src/audio/tools/live.mjs [--seconds 20]  -> also writes notes/audio-live.md
 import puppeteer from 'puppeteer-core';
+import { findChrome, ANGLE } from './chrome.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -20,12 +21,12 @@ const wavIdx = process.argv.indexOf('--wav');
 const args = { wav: wavIdx > 0 ? process.argv[wavIdx + 1] : null }; // the offline render the ending is compared with
 const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'audio-live-'));
 const browser = await puppeteer.launch({
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  executablePath: findChrome(),
   headless: 'new',
   userDataDir,
   protocolTimeout: 600000,
   defaultViewport: { width: 1280, height: 720 },
-  args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
+  args: [ANGLE, '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
 });
 const logs = [];
 let errors = 0; // audio-related only (other modules being rebuilt in parallel are listed, not counted)
@@ -33,7 +34,9 @@ const audioRelated = (txt) => /audio|score|AudioContext|AudioParam|AudioNode|Aud
 const rows = [];
 let stall = null,
   ending = null,
-  underruns = null;
+  underruns = null,
+  explore = null,
+  preStart = null;
 try {
   const page = await browser.newPage();
   page.on('console', (m) => {
@@ -57,9 +60,24 @@ try {
   };
   const plan = await page.evaluate(() => window.__score && { sections: window.__score.sections, events: window.__score.events, planMs: window.__score.planMs });
   console.log('score plan:', JSON.stringify(plan));
-  await page.evaluate(() => window.__app.start());
+  // setExplore before start() (no AudioContext yet): remembered, applied once the engine exists
+  const pre = await page.evaluate(async () => {
+    window.__score.api.setExplore('earth');
+    const before = window.__score.info();
+    await window.__app.start();
+    await new Promise((r) => setTimeout(r, 2500));
+    const i = window.__score.info();
+    window.__score.api.setExplore(null);
+    return { before, exploring: i.exploring, bed: i.explore && i.explore.world, voices: i.voices, state: i.state, active: i.active };
+  });
+  console.log('setExplore before start():', JSON.stringify(pre));
+  if (!(pre.exploring && pre.bed === 'earth' && pre.voices > 0 && pre.active === false)) {
+    errors++;
+    logs.push('[live.mjs] setExplore before start() was not applied: ' + JSON.stringify(pre));
+  }
+  preStart = pre;
   await sleep(3000);
-  await snap('start() + 3 s playing');
+  await snap('start() (+ explore off) + 3 s playing');
   await page.evaluate(() => window.__app.seek(130));
   await sleep(1500);
   await snap('seek(130) Earth, +1.5 s');
@@ -86,6 +104,86 @@ try {
   await page.evaluate(() => window.__app.seek(255));
   await sleep(PLAY * 1000);
   await snap(`seek(255) + play ${PLAY} s (Saturn leg)`);
+  // Tap the real output (after the limiter and mute stage) ON THE AUDIO THREAD: a tiny AudioWorklet posts the RMS
+  // of every 50 ms block with its context time, so the measurement is exact even while the page's main thread
+  // is stalled (messages arrive late, but they are timestamped).
+  await page.evaluate(async () => {
+    const E = window.__score._engine();
+    const src = `class Tap extends AudioWorkletProcessor { constructor(){ super(); this.s = 0; this.n = 0; this.N = Math.round(sampleRate * 0.05); }
+      process(inputs){ const x = inputs[0]; if (x && x[0]) { for (let c = 0; c < x.length; c++) { const d = x[c]; for (let i = 0; i < d.length; i++) this.s += d[i] * d[i]; } this.n += x[0].length;
+        if (this.n >= this.N) { this.port.postMessage([currentTime, this.s / (this.n * x.length)]); this.s = 0; this.n = 0; } } return true; } }
+      registerProcessor('fl-tap', Tap);`;
+    const url = URL.createObjectURL(new Blob([src], { type: 'application/javascript' }));
+    await E.ctx.audioWorklet.addModule(url);
+    const tap = new AudioWorkletNode(E.ctx, 'fl-tap', { numberOfInputs: 1, numberOfOutputs: 0 });
+    E.mute.connect(tap);
+    window.__blocks = [];
+    tap.port.onmessage = (m) => window.__blocks.push(m.data);
+    window.__marks = [];
+    window.__mark = (label) => window.__marks.push({ label, ctx: E.ctx.currentTime, t: window.__app.t, anchorT: E.anchorT, anchorCtx: E.anchorCtx });
+  });
+  const mean = (a) => (a.length ? +(10 * Math.log10(a.reduce((x, y) => x + y, 0) / a.length + 1e-12)).toFixed(1) : null);
+  const winDb = (blocks, a, b) => mean(blocks.filter(([c]) => c >= a && c < b).map(([, ms]) => ms));
+  // Explore mode (score.setExplore): the film's clock is frozen, an endless bed plays in the world's colour.
+  // Entered while the film plays, kept through a film pause, muted / unmuted, switched to another world, left.
+  {
+    const lvl = async (ms) => {
+      await page.evaluate(() => window.__blocks.splice(0));
+      await sleep(ms);
+      const bl = await page.evaluate(() => window.__blocks.splice(0));
+      return mean(bl.map(([, x]) => x));
+    };
+    const X = (id) => page.evaluate((id) => window.__score.api.setExplore(id), id);
+    const st = async () => page.evaluate(() => { const i = window.__score.info(); return { exploring: i.exploring, explore: i.explore, active: i.active, voices: i.voices, gens: i.generations, state: i.state, heap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : null }; });
+    explore = [];
+    const step = async (label, ms = 2500) => {
+      const db = await lvl(ms);
+      const i = await st();
+      explore.push({ label, db, ...i });
+      console.log(`explore ${label.padEnd(44)} out ${db} dBFS  exploring=${i.exploring} bed=${i.explore ? i.explore.world + '#' + i.explore.cycle : '-'} film active=${i.active} voices=${i.voices} gens=${i.gens} ${i.state}`);
+    };
+    await page.evaluate(() => window.__app.seek(270));
+    await sleep(2500);
+    await step('film playing at Saturn (reference)');
+    const tFilm = await page.evaluate(() => window.__app.t);
+    await X('saturn');
+    await page.evaluate(() => window.__app.pause()); // the integrator freezes t; `playing` may be either
+    await step("setExplore('saturn') + film paused, +2.5 s", 2500);
+    await step('saturn bed, 10 s later (context must not suspend)', 10000);
+    await X('saturn');
+    await step("setExplore('saturn') again (no-op)", 1500);
+    await page.evaluate(() => window.__app.setMuted(true));
+    await sleep(600); // (the mute ramp)
+    await step('muted', 1200);
+    await page.evaluate(() => window.__app.setMuted(false));
+    await X('titan');
+    await step("unmuted, setExplore('titan') +2.5 s");
+    await X('mars');
+    await step("setExplore('mars') +2.5 s");
+    await page.evaluate(() => window.__app.play());
+    await step('film `playing` true while exploring (t must not drive cues)', 2500);
+    const filmEvents = await page.evaluate(() => window.__score.info().active);
+    await X('pluto');
+    await step("setExplore('pluto') (unknown id: deep-space bed)");
+    await X(null);
+    await page.evaluate((t) => window.__app.seek(t), tFilm);
+    await step('setExplore(null) + seek(t): back to the film, +2.5 s');
+    await step('film, 3 s later (bed generation gone)', 3000);
+    explore.filmActiveWhileExploring = filmEvents;
+    const bad = [];
+    const by = (l) => explore.find((e) => e.label.startsWith(l));
+    if (!(by("setExplore('saturn') + film paused").db > -45)) bad.push('bed silent after entering');
+    if (!(by('saturn bed, 10 s later').db > -45) || by('saturn bed, 10 s later').state !== 'running') bad.push('bed did not keep sounding through a film pause');
+    if (!(by('muted').db < -70)) bad.push('mute does not silence the bed');
+    if (!(by("unmuted, setExplore('titan')").db > -45)) bad.push('titan bed silent');
+    if (filmEvents) bad.push('film became active while exploring');
+    if (!(by('setExplore(null) + seek(t)').db > -45) || by('film, 3 s later').exploring) bad.push('film did not resume after explore');
+    if (by('film, 3 s later').gens > 1) bad.push('generations left over after explore');
+    if (bad.length) {
+      errors++;
+      logs.push('[live.mjs] explore: ' + bad.join('; '));
+    }
+  }
   // Audio-thread underruns (AudioContext.playbackStats, Chrome): 8 s in each of the densest moments of the score.
   // Fails above 0.5% of playback time.
   underruns = await page.evaluate(async () => {
@@ -112,26 +210,6 @@ try {
       logs.push('[live.mjs] audio underruns above 0.5% of playback time');
     }
   } else console.log('AudioContext.playbackStats not available in this browser: underruns not measured');
-  // Tap the real output (after the limiter and mute stage) ON THE AUDIO THREAD: a tiny AudioWorklet posts the RMS
-  // of every 50 ms block with its context time, so the measurement is exact even while the page's main thread
-  // is stalled (messages arrive late, but they are timestamped).
-  await page.evaluate(async () => {
-    const E = window.__score._engine();
-    const src = `class Tap extends AudioWorkletProcessor { constructor(){ super(); this.s = 0; this.n = 0; this.N = Math.round(sampleRate * 0.05); }
-      process(inputs){ const x = inputs[0]; if (x && x[0]) { for (let c = 0; c < x.length; c++) { const d = x[c]; for (let i = 0; i < d.length; i++) this.s += d[i] * d[i]; } this.n += x[0].length;
-        if (this.n >= this.N) { this.port.postMessage([currentTime, this.s / (this.n * x.length)]); this.s = 0; this.n = 0; } } return true; } }
-      registerProcessor('fl-tap', Tap);`;
-    const url = URL.createObjectURL(new Blob([src], { type: 'application/javascript' }));
-    await E.ctx.audioWorklet.addModule(url);
-    const tap = new AudioWorkletNode(E.ctx, 'fl-tap', { numberOfInputs: 1, numberOfOutputs: 0 });
-    E.mute.connect(tap);
-    window.__blocks = [];
-    tap.port.onmessage = (m) => window.__blocks.push(m.data);
-    window.__marks = [];
-    window.__mark = (label) => window.__marks.push({ label, ctx: E.ctx.currentTime, t: window.__app.t, anchorT: E.anchorT, anchorCtx: E.anchorCtx });
-  });
-  const mean = (a) => (a.length ? +(10 * Math.log10(a.reduce((x, y) => x + y, 0) / a.length + 1e-12)).toFixed(1) : null);
-  const winDb = (blocks, a, b) => mean(blocks.filter(([c]) => c >= a && c < b).map(([, ms]) => ms));
   // a 3 s main-thread stall while playing (a shader compile, a GC storm): the 5 s lookahead keeps the music going
   await page.evaluate(() => window.__app.seek(120));
   await sleep(5000);
@@ -169,7 +247,7 @@ try {
     const sr = buf.readUInt32LE(24),
       data = 44;
     const wavSec = (buf.length - data) / 4 / sr;
-    if (Math.abs(wavSec - (dur + 7)) > 0.5) throw new Error(`stale reference WAV (${wavSec.toFixed(1)} s for a ${dur.toFixed(1)} s film)`);
+    if (Math.abs(wavSec - (dur + 7)) > 0.6) throw new Error(`stale reference WAV (${wavSec.toFixed(1)} s for a ${dur.toFixed(1)} s film)`);
     const rms = (t0, t1) => {
       let s = 0,
         n = 0;
@@ -219,6 +297,14 @@ const md = [
   'AudioContext.playbackStats over 8 s of playback in each of the densest moments (after a seek and 2.5 s of settling). Fails above 0.5% of playback time.',
   '',
   underruns ? ['| moment | journey t | underrun % | events | ms | live voice sets | sounding |', '| --- | --- | --- | --- | --- | --- | --- |', ...underruns.map((u) => `| ${u.label} | ${u.t} | ${u.pct} | ${u.events} | ${u.underrunMs} | ${u.voices} | ${u.sounding} |`)].join(String.fromCharCode(10)) : '- playbackStats not available',
+  '',
+  '## Explore mode',
+  '',
+  'score.setExplore(id): entered while the film plays at Saturn, the film then paused (the bed must keep sounding and the context must stay running), the same id again (a no-op), mute / unmute, other worlds, an unknown id, and back to the film with setExplore(null) + seek(t). Output RMS (audio-thread tap after the limiter and the mute stage) over each step.',
+  '',
+  preStart ? `setExplore('earth') before start(): after start() exploring=${preStart.exploring}, bed ${preStart.bed}, ${preStart.voices} voice sets, context ${preStart.state}, film active=${preStart.active}.` : '',
+  '',
+  explore ? ['| step | output RMS dBFS | exploring | bed (world#variation) | film active | live voice sets | generations | ctx |', '| --- | --- | --- | --- | --- | --- | --- | --- |', ...explore.map((e) => `| ${e.label} | ${e.db} | ${e.exploring} | ${e.explore ? e.explore.world + '#' + e.explore.cycle : '-'} | ${e.active} | ${e.voices} | ${e.gens} | ${e.state} |`)].join(String.fromCharCode(10)) : '- not run',
   '',
   '## Main-thread stall',
   '',

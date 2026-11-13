@@ -5,7 +5,8 @@
 //   hud=0|1             show the HUD overlay (default 1)
 //   t=<s>               start at journey time t
 //   epoch=<ISO date>    date the planets are positioned for (default: now; capture default 2026-11-02T12:00:00Z)
-//   q=low|med|high      quality preset (render scale)
+//   q=low|med|high      starting resolution budget (1.0 / 1.4 / 2.0 megapixels); playback then adapts it to the frame rate
+//   res=<MP>            pin the drawing buffer to this many megapixels (no adaptation)
 //   view=body           inspect one body instead of running the journey:
 //     body=<id>           sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, asteroids
 //     target=<moonId>     centre on one of that body's moons instead (e.g. body=earth&target=moon)
@@ -30,6 +31,7 @@ import { BODIES, JOURNEY_ORDER } from './core/bodies-data.js';
 import * as assets from './core/assets.js';
 
 import { placeholderBody } from './fallback/body.js';
+import { createExplore } from './ui/explore.js';
 
 // Modules are loaded dynamically so that one broken module falls back to a placeholder instead of
 // taking the whole app down (important while many builders work in parallel).
@@ -133,9 +135,17 @@ async function boot() {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.autoClear = false;
-  const renderScale = { low: 0.6, med: 0.8, high: 1.0 }[QUALITY] ?? 1.0;
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2) * renderScale;
-  renderer.setPixelRatio(pixelRatio);
+  // Resolution: the drawing buffer is sized from a megapixel budget, not from the display. A Retina laptop in
+  // fullscreen is ~6 MP, four times what the heaviest shots can shade at 60 fps on its GPU; the film's own soft
+  // optics (bloom, grain) upscale gracefully and the HUD is DOM, so it stays sharp. During playback the budget
+  // adapts to the measured frame rate (see `adapt` below). res=<MP> pins it; capture mode renders 1:1.
+  const DPR_CAP = Math.min(window.devicePixelRatio || 1, 2);
+  const MP_LEVELS = [0.5, 0.7, 1.0, 1.4, 2.0, 2.8, 4.0, 5.6, 8.0];
+  const resPinned = params.has('res') ? Math.max(0.2, Number(params.get('res'))) : null;
+  const res = { level: MP_LEVELS.indexOf({ low: 1.0, med: 1.4, high: 2.0 }[QUALITY] ?? 2.0), ceiling: MP_LEVELS.length - 1 };
+  const ratioFor = (mp) => Math.min(DPR_CAP, Math.sqrt((mp * 1e6) / Math.max(1, window.innerWidth * window.innerHeight)));
+  const targetRatio = () => (CAPTURE && resPinned === null ? Math.min(window.devicePixelRatio || 1, 2) : ratioFor(resPinned ?? MP_LEVELS[res.level]));
+  renderer.setPixelRatio(targetRatio());
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   if (!renderer.capabilities.reversedDepthBuffer) log('warning: EXT_clip_control unavailable; reversed depth disabled');
 
@@ -154,6 +164,12 @@ async function boot() {
   ctx.positions = positions;
 
   const hud = SHOW_HUD || !CAPTURE ? await createModule('hud', { ...ctx, app, capture: CAPTURE, visible: SHOW_HUD }) : null;
+  // the static first-paint card of the web build hands over to the real splash
+  const bootEl = document.getElementById('boot');
+  if (bootEl) {
+    bootEl.classList.add('gone');
+    setTimeout(() => bootEl.remove(), 900);
+  }
   const offProgress = assets.onProgress((d, n) => hud?.setLoading?.(n ? d / n : 0));
 
   const bodyList = await Promise.all(JOURNEY_ORDER.map((id) => createModule(id, { ...ctx, data: BODIES[id] })));
@@ -179,6 +195,26 @@ async function boot() {
 
   const post = await createModule('post', ctx);
   const score = CAPTURE ? null : await createModule('score', ctx);
+
+  // live camera: look-around during the film and Explore mode (created before the HUD's controls attach, so its
+  // key handling comes first while exploring)
+  let explore = null;
+  if (VIEW !== 'body') {
+    try {
+      explore = createExplore({ ...ctx, app, capture: CAPTURE });
+    } catch (e) {
+      console.error('[app] explore mode unavailable:', e);
+    }
+  }
+  // the score follows the world being explored (moons of Jupiter share its bed)
+  const AMBIENT = { io: 'jupiter', europa: 'jupiter', ganymede: 'jupiter', callisto: 'jupiter' };
+  app.onExplore = (id) => {
+    app.exploring = !!id;
+    safe('score', () => score?.setExplore?.(id ? AMBIENT[id] || id : null));
+  };
+  app.enterExplore = (id, opts) => explore?.enter(id, opts);
+  app.exitExplore = () => explore?.exit();
+  app.explore = explore;
 
   // ---------------------------------------------------------------- body-inspection view
   // universe position of any body or moon id at a given simulated day
@@ -262,7 +298,7 @@ async function boot() {
   let lastShot = null;
 
   function evaluate(t, dt) {
-    const shot = VIEW === 'body' ? bodyViewShot() : director.evaluate(t);
+    const shot = VIEW === 'body' ? bodyViewShot() : explore?.active ? explore.shot(sunInfo.visible) : explore ? explore.applyLook(director.evaluate(t)) : director.evaluate(t);
     lastShot = shot;
     const camU = shot.camPos;
 
@@ -347,6 +383,7 @@ async function boot() {
 
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
+    renderer.setPixelRatio(targetRatio());
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
@@ -359,14 +396,35 @@ async function boot() {
   resize();
 
   let lastFrame = null;
+  // CPU time per stage (ms, running mean and worst since the last read): app.prof() — for finding main-thread hitches
+  const prof = { n: 0, sum: [0, 0, 0, 0], max: [0, 0, 0, 0] };
   function renderAt(t, dt) {
+    const a = performance.now();
     const frame = evaluate(t, dt);
     const sun = computeSun(frame);
+    const b = performance.now();
     post.render({ scene, camera, shot: frame.shot, sun, dt, t });
-    safe('hud', () => hud?.update?.(t, frame.shot, { playing: app.playing, muted: app.muted, duration: director.duration }));
+    const c = performance.now();
+    safe('hud', () => hud?.update?.(t, frame.shot, { playing: app.playing, muted: app.muted, duration: director.duration, explore: explore?.active ? explore.id : null }));
+    const d = performance.now();
     safe('score', () => score?.update?.(t, frame.shot, app.playing));
+    const e = performance.now();
     lastFrame = frame;
+    const v = [b - a, c - b, d - c, e - d];
+    prof.n++;
+    for (let i = 0; i < 4; i++) {
+      prof.sum[i] += v[i];
+      if (v[i] > prof.max[i]) prof.max[i] = v[i];
+    }
   }
+  app.prof = () => {
+    const r = { frames: prof.n };
+    ['evaluate', 'render', 'hud', 'score'].forEach((k, i) => (r[k] = { avg: +(prof.sum[i] / Math.max(1, prof.n)).toFixed(2), max: +prof.max[i].toFixed(1) }));
+    prof.n = 0;
+    prof.sum.fill(0);
+    prof.max.fill(0);
+    return r;
+  };
 
   // ---------------------------------------------------------------- capture / control API
   app.director = director;
@@ -377,9 +435,11 @@ async function boot() {
   app.seek = (t) => {
     app.t = Math.max(0, Math.min(director.duration, t));
     havePrev = false;
+    app.adaptHold?.();
     score?.seek?.(app.t);
   };
   app.renderFrame = async () => {
+    explore?.update(0, false);
     renderAt(app.t, 1 / 60);
     await new Promise((r) => requestAnimationFrame(() => r()));
   };
@@ -579,10 +639,90 @@ async function boot() {
 
   if (CAPTURE) return; // frames are driven by tools/shot.mjs
 
+  // ---------------------------------------------------------------- adaptive resolution
+  // Frame times are watched in ~0.8 s windows while the film plays. Two marginal windows in a row, or one clearly overloaded one, step the
+  // megapixel budget down (two steps when frames take twice the budget); after several seconds of clean vsync it
+  // probes one step up, and a probe that fails lowers the ceiling for a while (longer each time) so playback does
+  // not oscillate. Re-allocating the HDR chain costs a frame or two, so the steps are coarse (x1.4 in pixels),
+  // changes are rare, and none happens while the film is still or just after a seek (cold frames are not load).
+  const adapt = { times: [], settle: 0, good: 0, bad: 0, failAt: -1, failCount: 0, lastUp: -1e9 };
+  function setLevel(l, now) {
+    l = Math.max(0, Math.min(res.ceiling, l));
+    // levels above what the display can show are the same buffer: clamp to the first one that reaches the cap
+    while (l > 0 && ratioFor(MP_LEVELS[l - 1]) >= DPR_CAP) l--;
+    if (l === res.level) return false;
+    res.level = l;
+    resize();
+    adapt.times.length = 0;
+    adapt.settle = now + 700;
+    adapt.good = adapt.bad = 0;
+    return true;
+  }
+  app.adaptHold = (ms = 900) => {
+    adapt.times.length = 0;
+    adapt.bad = 0;
+    adapt.settle = Math.max(adapt.settle, performance.now() + ms);
+  };
+  function adaptStep(now, dtMs) {
+    // a new chapter is a new load (Mercury's raymarched ground costs ten times Saturn's eclipse per pixel): what
+    // failed in the last one says nothing here, so the ceiling lifts and the probes start again
+    const ci = lastShot ? lastShot.chapterIndex : -1;
+    if (ci !== adapt.chapter) {
+      adapt.chapter = ci;
+      res.ceiling = MP_LEVELS.length - 1;
+      adapt.failAt = -1;
+      adapt.failCount = 0;
+    }
+    if (resPinned !== null || !app.playing || document.hidden || now < adapt.settle) return;
+    if (dtMs > 400) return app.adaptHold(600); // the tab was away, or a one-off stall: not a measurement
+    adapt.times.push(dtMs);
+    const span = adapt.times.reduce((a, b) => a + b, 0);
+    if (span < 800) return;
+    // judged on the 86th percentile (dropped frames come in ones and twos between good ones, so a median hides
+    // them) with the single worst frame set aside (a GC pause is not a GPU limit)
+    const sorted = adapt.times.slice().sort((a, b) => a - b);
+    sorted.pop();
+    const med = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.86))];
+    const best = sorted[sorted.length >> 2];
+    adapt.times.length = 0;
+    if (med > 20.5) {
+      adapt.good = 0;
+      // a probe that failed: step straight back, remember it and wait longer before the next one
+      const failedProbe = now - adapt.lastUp < 7000;
+      if (failedProbe) {
+        res.ceiling = Math.max(0, res.level - 1);
+        adapt.failAt = now;
+        adapt.failCount++;
+      } else if (++adapt.bad < 2 && med < 27) return; // a marginal window gets a second opinion; a clear overload does not
+      setLevel(res.level - (med > 36 && !failedProbe ? 2 : 1), now);
+      return;
+    }
+    adapt.bad = 0;
+    if (adapt.failAt >= 0 && now - adapt.failAt > 60000 * Math.min(8, 2 ** (adapt.failCount - 1))) {
+      res.ceiling = MP_LEVELS.length - 1;
+      adapt.failAt = -1;
+    }
+    adapt.good = med < 17.6 ? adapt.good + 1 : 0;
+    // ~6 s of clean frames (sooner when a 120 Hz display shows real headroom)
+    if (adapt.good >= (best < 11 && med < 11 ? 4 : 8) && res.level < res.ceiling && ratioFor(MP_LEVELS[res.level]) < DPR_CAP) {
+      if (setLevel(res.level + 1, now)) adapt.lastUp = now;
+    }
+  }
+  app.resolution = () => ({ mp: resPinned ?? MP_LEVELS[res.level], level: res.level, ceiling: res.ceiling, ratio: renderer.getPixelRatio() });
+
   let prev = performance.now();
   function loop(now) {
-    const dt = Math.min(0.1, (now - prev) / 1000);
+    const rawDt = now - prev;
+    const dt = Math.min(0.1, rawDt / 1000);
     prev = now;
+    adaptStep(now, rawDt);
+    explore?.update(dt, app.playing);
+    if (explore?.active) {
+      // off the timeline: the film clock waits, the explore clock (inside the module) runs
+      renderAt(app.t, app.playing ? dt : 0);
+      requestAnimationFrame(loop);
+      return;
+    }
     if (app.playing) {
       app.t += dt;
       if (app.t >= director.duration) {
@@ -599,6 +739,19 @@ async function boot() {
 boot().catch((e) => {
   console.error(e);
   app.failed = String(e && e.stack ? e.stack : e);
+  // a visitor without WebGL 2 (or with the GPU blocked) gets a plain explanation, not a stack trace
+  const noGL = /WebGL|context/i.test(app.failed);
+  const bootEl = document.getElementById('boot');
+  if (bootEl && !CAPTURE) {
+    bootEl.classList.remove('gone');
+    bootEl.querySelector('i')?.remove();
+    const p = document.createElement('p');
+    p.textContent = noGL
+      ? 'This film is rendered live on your graphics card and needs WebGL 2, which this browser or device is not offering. Try a recent Chrome, Edge, Firefox or Safari on a computer with hardware acceleration turned on.'
+      : 'Something went wrong while starting the film. Reloading the page usually fixes it.';
+    bootEl.appendChild(p);
+    return;
+  }
   const el = document.createElement('pre');
   el.style.cssText = 'position:fixed;inset:0;margin:0;padding:24px;color:#f88;background:#000;font:12px monospace;white-space:pre-wrap;z-index:99';
   el.textContent = 'Failed to start:\n' + app.failed;

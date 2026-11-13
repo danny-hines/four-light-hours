@@ -141,7 +141,7 @@ export function buildFilm(ctx, W, opts = {}) {
     ['titan', 15, 4.7, 1.4, 0.5],
     ['uranus', 19, 4.7, 1.5, 0.4],
     ['neptune', 23, 5, null],
-    ['triton', 52, 0, null],
+    ['triton', 57, 0, null],
   ];
   for (const [id, dur, leg, cut, dwellRate] of seq) {
     S[id] = { t0: T, t1: T + dur, leg, cut: cut ?? undefined, dwell: cut ?? 0, dwellRate };
@@ -511,7 +511,7 @@ export function buildFilm(ctx, W, opts = {}) {
     chapter('venus', 'Venus', S.mercury.t1, 'venus', ['mercury']);
     // (the crescent beat a stop over the day deck: its forward-scattering limb is a thin bright line that blooms)
     key('ev', t0 + 2, EV.planet); key('ev', t0 + 6, EV.venus); key('ev', t0 + 11.5, EV.venus); key('ev', t0 + 14.2, EV.venusCrescent); key('ev', b.t1, EV.venusCrescent);
-    key('sky', t0 + 2, 0.6); key('sky', t0 + 12, 0.45); key('sky', t0 + 15, 0.7);
+    key('sky', t0 + 2, 0.6); key('sky', t0 + 12, 0.45); key('sky', t0 + 15, 0.15); // (crescent: the Sun's veil is in the lens; few stars survive it)
     hold(t0 + 15.4, t0 + 18.4); // the crescent
     // (the Sun stands just beyond the frame edge in the crescent beat: a calmer lens system under the +1.3 EV)
     key('flare', t0 + 12, 1); key('flare', t0 + 15, 0.6);
@@ -649,7 +649,7 @@ export function buildFilm(ctx, W, opts = {}) {
       return clamp((2 * Math.atan(Math.tan(ext) / 0.82)) / DEG, 24, 64);
     };
     key('ev', t0 + 4, EV.moon); key('ev', tRise1, EV.moon); key('ev', b.t1, 0.25);
-    key('sky', t0 + 5, 0.55); key('sky', tRise1, 0.55);
+    key('sky', t0 + 5, 0.4); key('sky', tRise0 - 1.5, 0.14); key('sky', tRise1, 0.14); // (sunlit regolith in frame: the stars all but go)
     key('fov', t0, 40); key('fov', t0 + 3.2, 46); key('fov', t0 + 7.4, 30); key('fov', tRise0 + 0.6, 11); key('fov', tRise1, 9.5); key('fov', t0 + 20.4, 30); key('fov', t0 + 23.3, pairFov(t0 + 23.6)); key('fov', t0 + 24.3, pairFov(t0 + 24.3)); key('fov', b.t1 + 1, pairFov(t0 + 24.3) * 0.85);
     key('letterbox', t0 + 5, 0); key('letterbox', t0 + 7.5, 1); key('letterbox', tRise1 + 0.5, 1); key('letterbox', tRise1 + 3, 0);
     key('roll', tRise0 - 1.5, 0); key('roll', tRise0, -7); key('roll', tRise1, -5); key('roll', t0 + 20.4, 0);
@@ -799,11 +799,11 @@ export function buildFilm(ctx, W, opts = {}) {
     const sculpt = toward(Math.min(95, uSun)), sunward = toward(38);
     chapter('asteroids', 'The Asteroid Belt', S.mars.t1, undefined, ['mars']);
     key('ev', t0 + 1, EV.belt); key('ev', t0 + 12.5, EV.belt); key('ev', t0 + 18, 0.6); key('ev', b.t1 + 0.4, 0.6);
-    key('sky', t0 + 2, 0.9); key('sky', b.t1, 0.9);
+    key('sky', t0 + 2, 0.55); key('sky', b.t1, 0.6);
     key('fov', t0, 56); key('fov', t0 + 5, 58); key('fov', t0 + 13, 54); key('fov', t0 + 19, 54);
     key('roll', t0, 0); key('roll', t0 + 4, 5); key('roll', t0 + 9, -3); key('roll', t0 + 13, 0);
     key('intensity', t0, 0.8); key('intensity', t0 + 6, 0.55); key('intensity', t0 + 13, 0.6); key('intensity', b.t1, 0.75);
-    legCut('mars', { dir: u.clone() }, { focus: 'asteroids', fov: [44, 54], sky: [0.5, 0.85] });
+    legCut('mars', { dir: u.clone() }, { focus: 'asteroids', fov: [44, 54], sky: [0.5, 0.55] });
     aim(t0 + 2.5, { dir: sculpt }, 6.5, 'ecl', 'cruise');
     aim(t0 + 12.5, { dir: sunward }, 6.5, { dir: sd.clone() }, 'cruise');
     legCut('belt', 'jupiter', { up: { pole: 'jupiter' }, fov: [54, 44], ev: [0.6, EV.planet], sky: [0.9, 0.85] });
@@ -1092,10 +1092,10 @@ export function buildFilm(ctx, W, opts = {}) {
     // ramp up from rest, a steady Powers-of-Ten rate while Triton and Neptune shrink, then a long ease-out
     rig.add(new PullBack(rig, { anchor: id, t0: tPB, t1: b.t1, tEnd: tFin, d0: 5.6 * RT, dir0: blkT.dirAt(tPB), Q, segs: [{ d: 1.8, a: 0, b: 2.0 }, { d: 2.0, a: 2.0, b: 2.0 }, { d: 2.4, a: 2.0, b: 0.7 }, { d: 6.8, a: 0.7, b: 0 }], swingU: 7.0 }));
     void qd;
-    // the finale's beats: the labelled map (8.8 s), the zoom to Earth (6 s), the pale blue dot (8.4 s), credits (6.3 s)
+    // the finale's beats: the labelled map (8.8 s), the zoom to Earth (6 s), the pale blue dot (10.5 s), credits
     tPBD0 = tFin + 8.8;
     tPBD1 = tPBD0 + 6;
-    const tCred = tPBD1 + 8.4;
+    const tCred = tPBD1 + 10.5;
     // ---- the finale frame, solved: from Q, the Sun and every planet that can be told apart inside 85% of the
     // frame, the lower-left card zone kept free, the ecliptic level; the smallest field that does it
     const QF = Q.clone().multiplyScalar(1.004);
@@ -1152,23 +1152,27 @@ export function buildFilm(ctx, W, opts = {}) {
         }
     }
     const fovFin = clamp(finBest ? finBest.fov : 50, 30, 75);
-    // ---- the pale blue dot: Earth on the right third, the Sun just beyond the left edge on Earth's horizontal,
-    // so the Sun's scattered-light streak runs through Earth while the ghost axis (Sun -> frame centre) misses it
+    // ---- the pale blue dot: Earth right of centre, the Sun just beyond the left edge, and the frame rolled so the
+    // line from the Sun through the frame centre (the axis of the scattered-light beam, post.js) runs down across
+    // the picture at BEAM_TILT and passes through Earth: the point of light sits inside the sunbeam, as it does in
+    // Voyager 1's frame of 14 February 1990
     const eD = dirTo('earth');
     const sep = Math.acos(clamp(eD.dot(sunD), -1, 1));
-    const XE = 0.36, XS = -1.07, YP = 0.22;
-    const tanHh = Math.tan(sep) / (XE - XS); // horizontal tan(half fov)
+    const XE = tune('pbdX', 0.3), XS = -1.07, BEAM_TILT = tune('pbdTilt', 13) * DEG;
+    const tanHh = (Math.tan(sep) * Math.cos(BEAM_TILT)) / (XE - XS); // horizontal tan(half fov)
     const fovPBD = clamp(((2 * Math.atan((tanHh * 9) / 16)) / DEG) * tune('pbd', 1.0), 0.35, 3.2);
-    const nPl = eD.clone().cross(sunD).normalize(); // normal of the Sun-Earth plane
-    const upPBD = nPl.dot(ECL) >= 0 ? nPl.clone() : nPl.clone().negate();
-    // aim: from Earth toward the Sun by XE * tanHh (Earth then sits right of centre), then lowered by YP
     const towardSun = sunD.clone().addScaledVector(eD, -sunD.dot(eD)).normalize();
-    const tanV = (tanHh * 9) / 16;
-    const aimPBD = eD.clone().addScaledVector(towardSun, XE * tanHh).addScaledVector(upPBD, -YP * tanV).normalize();
-    const upP = upPBD.clone().addScaledVector(aimPBD, -upPBD.dot(aimPBD)).normalize();
+    let nPl = eD.clone().cross(towardSun).normalize(); // normal of the Sun-Earth plane, on the ecliptic-north side
+    if (nPl.dot(ECL) < 0) nPl.negate();
+    // screen axes: the Sun lies up-left of Earth along the beam
+    const scrR = towardSun.clone().multiplyScalar(-Math.cos(BEAM_TILT)).addScaledVector(nPl, Math.sin(BEAM_TILT));
+    const scrU = towardSun.clone().multiplyScalar(Math.sin(BEAM_TILT)).addScaledVector(nPl, Math.cos(BEAM_TILT));
+    const dE = (XE * tanHh) / Math.cos(BEAM_TILT); // Earth's distance from the frame centre along the beam (tan units)
+    const aimPBD = eD.clone().addScaledVector(scrR, -dE * Math.cos(BEAM_TILT)).addScaledVector(scrU, dE * Math.sin(BEAM_TILT)).normalize();
+    const upP = scrU.clone().addScaledVector(aimPBD, -scrU.dot(aimPBD)).normalize();
     chapter('finale', 'Four light-hours', t0 + 11, undefined, ['neptune', 'triton']);
     key('ev', t0, 0.2); key('ev', t0 + 4, 0.6); key('ev', t0 + 12, 0.6); key('ev', t0 + 15, EV.finale); key('ev', tFin - 1, tune('finEV', EV.finale)); key('ev', tPBD0, tune('finEV', EV.finale)); key('ev', tPBD1, tune('pbdEV', 1.6)); key('ev', b.t1, tune('pbdEV', 1.6));
-    key('sky', t0, 0.6); key('sky', t0 + 6, 0.7); key('sky', tFin - 2, 0.75); key('sky', tFin + 1.5, 0.5); key('sky', tPBD0, 0.5); key('sky', tPBD1, tune('pbdSky', 0.004));
+    key('sky', t0, 0.6); key('sky', t0 + 6, 0.7); key('sky', tFin - 5, 0.6); key('sky', tFin + 0.5, 0.3); key('sky', tPBD0, 0.3); key('sky', tPBD1, tune('pbdSky', 0.004));
     key('fov', t0, 42); key('fov', t0 + 3.5, 48); key('fov', tC, 52); key('fov', t0 + 9.5, 50); key('fov', t0 + 13.5, 50); key('fov', tFin - 1, fovFin); key('fov', tPBD0, fovFin * 0.97);
     // the zoom to Earth at a steady rate in log(field of view)
     for (let i = 1; i <= 8; i++) {
@@ -1205,7 +1209,8 @@ export function buildFilm(ctx, W, opts = {}) {
     plan.aim.push({ t: tPB, target: { dir: finBest ? finBest.aimD : sunD }, blend: tFin + 1.4 - tPB, up: finBest ? { dir: finBest.up } : 'ecl', ease: 'cruise', qslerp: true });
     aim(tPBD0 - 0.5, { dir: aimPBD }, 4.2, { dir: upP }, 'cruise'); // re-centred ahead of the zoom, so Earth never leaves the field
     labels(tFin + 0.5, tPBD0 + 2, ['sun', 'jupiter', 'saturn', 'uranus', 'neptune', 'earth', 'mars', 'venus', 'mercury'], 'planet');
-    labels(tPBD1 - 1.5, tCred + 1.2, ['earth'], 'pale-blue-dot');
+    // the reticle finds the point, then lets go of it: the last seconds before the credits are the dot alone
+    labels(tPBD1 - 1.5, tPBD1 + 6.2, ['earth'], 'pale-blue-dot');
     focus(tFin - 2, 'sun');
     focus(tPBD0 + 2, 'earth');
     hold(tC, tPB + 2.6); // twin crescents, and the start of the retreat's slow turn (already gentle: cruise easing)
