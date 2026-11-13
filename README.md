@@ -33,7 +33,8 @@ Windows paths are known, or set `CHROME_PATH`). The D3D11 shader-compile measure
 npm ci
 npm run serve        # http://localhost:5178/dev.html (live modules, no bundling)
 npm run build        # writes index.html (single file)
-npm run build:web    # writes dist/ (static site; `vercel deploy dist --prod` publishes it)
+npm run build:web    # writes dist/ (the static site; Vercel runs this itself, see vercel.json)
+npm run deploy       # publishes the working tree to production (pushes to main deploy on their own)
 node tools/shot.mjs --t 0:440:8 --sheet shots/sheet.png --cols 8   # contact sheet of the whole film
 ```
 

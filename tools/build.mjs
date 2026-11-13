@@ -71,7 +71,7 @@ if (!WEB) {
   // ---------------------------------------------------------------- web build: dist/ for static hosting
   // A small index.html that paints at once (title + a hairline), the bundle as one cacheable file, and the assets
   // as separate files that load in parallel behind the splash's progress bar. `--site <url>` sets the canonical /
-  // social-card URLs.
+  // social-card URLs. Hosting config (build command, cache headers) lives in the root vercel.json.
   const crypto = await import('node:crypto');
   const dist = path.join(root, 'dist');
   fs.rmSync(dist, { recursive: true, force: true });
@@ -128,19 +128,5 @@ ${hasOg ? `<meta property="og:image" content="${site}/og.jpg"><meta property="og
 </html>
 `;
   fs.writeFileSync(path.join(dist, 'index.html'), web);
-  fs.writeFileSync(
-    path.join(dist, 'vercel.json'),
-    JSON.stringify(
-      {
-        cleanUrls: true,
-        headers: [
-          { source: '/app.(.*).js', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
-          { source: '/assets/(.*)', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }] },
-        ],
-      },
-      null,
-      2
-    )
-  );
   console.log(`dist/  index.html ${kb(Buffer.byteLength(web))}, ${jsName} ${kb(rawJs.length)}, ${files.length} assets ${kb(assetBytes)}${hasOg ? ', og.jpg' : ''}`);
 }

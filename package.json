@@ -6,6 +6,7 @@
     "serve": "node tools/serve.mjs",
     "build": "node tools/build.mjs",
     "build:web": "node tools/build.mjs --web",
+    "deploy": "vercel deploy --prod",
     "shot": "node tools/shot.mjs"
   },
   "author": "",
