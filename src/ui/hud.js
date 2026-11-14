@@ -18,6 +18,7 @@ import { KICKER, SUBTITLE, FACT_KEYS, FACT_LABEL, FACT_LABEL_FOR, FACT_SHORT, TI
 import * as F from './format.js';
 import { orrerySVG, layoutOrreryLabels } from './orrery.js';
 import { createLabels } from './labels.js';
+import { matteBarPx } from '../core/frame.js';
 import { createControls } from './controls.js';
 import { createMeter } from './meter.js';
 import { createComposer, textRects, unionRect } from './layout.js';
@@ -388,7 +389,7 @@ export async function create(ctx) {
   const layoutCache = new Map();
   let curShot = null; // the shot being drawn (body view has no director timeline)
   const lbFor = (shot, W, H) => {
-    const barPx = W / H < 2.39 ? (H - W / 2.39) / 2 : 0;
+    const barPx = matteBarPx(W, H);
     return W / H >= 1.2 && barPx < H * 0.2 ? barPx * clamp01(shot.letterbox || 0) : 0;
   };
   // rows of visible text of a card / caption element: [{x,y,w,h,stage}] ('name' shows from the arrival, 'body' at the beat)
@@ -1435,9 +1436,9 @@ export async function create(ctx) {
       buildOccluders(days);
       flareNow = shot.flare ?? 1;
 
-      // letterbox: keep text inside the picture (assumes a 2.39:1 matte)
+      // letterbox: keep text inside the picture (2.39:1 matte, relaxed on portrait screens: core/frame.js)
       // (landscape only: on a portrait phone the bars are tall enough to hold the text, like subtitles in a matte)
-      const barPx = W / H < 2.39 ? (H - W / 2.39) / 2 : 0;
+      const barPx = matteBarPx(W, H);
       const lbPx = lbFor(shot, W, H);
       curShot = shot;
       const lbk = lbPx.toFixed(1);

@@ -309,7 +309,8 @@ html.flh-idle, html.flh-idle body, html.flh-idle canvas { cursor: none !importan
   #flh-hud .flh-credits { grid-template-columns: 1fr 1fr; }
   #flh-hud .flh-now, #flh-hud .flh-track .cl:not(.cur) { display: none; }
   #flh-hud .flh-row { bottom: 44px; }
-  #flh-splash { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: center; gap: 8px; overflow-y: auto; padding-top: 24px; padding-bottom: 24px; }
+  /* (safe: when the column is taller than the screen it starts at the top and scrolls, instead of being cut off above) */
+  #flh-splash { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: start; align-content: safe center; gap: 8px; overflow-y: auto; padding-top: 24px; padding-bottom: 24px; }
   #flh-splash .sp-orrery { order: -1; width: min(84vw, 44vh); margin-bottom: 22px; }
   #flh-splash .sp-orrery figcaption { font-size: 7.5px; }
   #flh-splash h1 { margin-top: 18px; font-size: clamp(26px, 8.4vw, 40px); letter-spacing: .3em; }
@@ -317,6 +318,16 @@ html.flh-idle, html.flh-idle body, html.flh-idle canvas { cursor: none !importan
   #flh-splash .sp-line { margin-top: 18px; font-size: 18px; }
   #flh-splash .sp-prog { margin-top: 28px; }
   #flh-splash .sp-notes { margin-top: 30px; }
+}
+/* a short portrait screen (a small phone with the browser's bars showing): a smaller orrery so Begin stays in view */
+@media (max-width: 760px) and (max-height: 700px) and (orientation: portrait) {
+  #flh-splash { padding-top: 14px; padding-bottom: 14px; }
+  #flh-splash .sp-orrery { width: min(76vw, 33vh); margin-bottom: 8px; }
+  #flh-splash h1 { margin-top: 12px; }
+  #flh-splash .sp-line { margin-top: 12px; }
+  #flh-splash .sp-prog { margin-top: 20px; }
+  #flh-splash .sp-begin { margin-top: 18px; }
+  #flh-splash .sp-notes { margin-top: 20px; }
 }
 /* ------------------------------------------------------------------ short landscape (a phone on its side, a letterbox window)
    Everything shrinks with --u (floored at 0.62, mirrored by unitFor in hud.js); small caps keep a legible px floor.
@@ -357,6 +368,8 @@ html.flh-idle, html.flh-idle body, html.flh-idle canvas { cursor: none !importan
   #flh-hud .flh-tele .ruler .tk.sun { top: 1px; width: 3px; height: 3px; margin-left: -1.5px; }
   #flh-hud .flh-tele .ruler .me { top: -2px; height: 9px; }
   #flh-hud .flh-tele .ruler .tl, #flh-hud .flh-tele .ruler .end { display: none; }
+  /* the row sits clear above the timeline's chapter names (the 40 px touch targets would otherwise reach down into them) */
+  #flh-hud .flh-row { bottom: 30px; height: 40px; }
   #flh-hud .flh-time { font-size: 11px; }
   #flh-hud .flh-now { font-size: 8px; }
   #flh-hud .flh-track .cl { font-size: 7.5px; letter-spacing: .2em; }

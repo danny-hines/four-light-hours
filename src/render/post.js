@@ -15,6 +15,7 @@
 //   postIG=0 (no image-based ghosts)   postPick=x,y;x,y (log linear HDR values at screen pixels)
 //   postOv=orbits (test hook: draw the director's finale orbit lines through the overlay layer)
 import * as THREE from 'three';
+import { matteStrip } from '../core/frame.js';
 import { VERT, PREFILTER, DOWN, UP, PROBE, WARP, COMPOSITE, NG, SPECTRAL, NL } from './post/shaders.js';
 import { buildPupilPSF } from './post/psf.js';
 
@@ -696,7 +697,7 @@ export async function create(ctx) {
     // ---------------------------------------------------------------- composite
     const fadeC = Math.min(1, Math.max(0, fade));
     const lb = Math.min(1, Math.max(0, letterbox));
-    const targetH = Math.min(1, W / H / 2.39);
+    const targetH = matteStrip(W / H); // 2.39:1, relaxed on a portrait screen (core/frame.js)
     // pushed exposures (night side, eclipse) get a slightly stronger veil: blazing crescents and glints then
     // carry a faint, wide halo, as they would through real glass
     const exBoost = 1 + 0.4 * smooth(1.2, 4, exposure);

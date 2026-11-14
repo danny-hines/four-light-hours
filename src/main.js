@@ -28,6 +28,7 @@ import * as THREE from 'three';
 import { U } from './core/uniforms.js';
 import { AU, DEG, TIME_SCALE, daysSinceJ2000, heliocentricPosition, radecToThree } from './core/astro.js';
 import { BODIES, JOURNEY_ORDER } from './core/bodies-data.js';
+import { fitFov } from './core/frame.js';
 import * as assets from './core/assets.js';
 
 import { placeholderBody } from './fallback/body.js';
@@ -192,6 +193,15 @@ async function boot() {
   if (director.beltCrossing && belt.setCrossing) belt.setCrossing(director.beltCrossing.position, director.beltCrossing.direction);
   if (director.object) world.add(director.object); // e.g. orbit lines for the finale
   ctx.director = director;
+  // every consumer of the film's shots (renderer, HUD composer, labels, explore) sees the field of view fitted to this
+  // screen's shape, so a portrait phone keeps the subject in the picture (core/frame.js)
+  if (director.evaluate) {
+    const evaluate16x9 = director.evaluate.bind(director);
+    director.evaluate = (t) => {
+      const s = evaluate16x9(t);
+      return { ...s, fov: fitFov(s.fov ?? 35, window.innerWidth / Math.max(1, window.innerHeight)) };
+    };
+  }
 
   const post = await createModule('post', ctx);
   const score = CAPTURE ? null : await createModule('score', ctx);
@@ -298,7 +308,9 @@ async function boot() {
   let lastShot = null;
 
   function evaluate(t, dt) {
-    const shot = VIEW === 'body' ? bodyViewShot() : explore?.active ? explore.shot(sunInfo.visible) : explore ? explore.applyLook(director.evaluate(t)) : director.evaluate(t);
+    let shot = VIEW === 'body' ? bodyViewShot() : explore?.active ? explore.shot(sunInfo.visible) : explore ? explore.applyLook(director.evaluate(t)) : director.evaluate(t);
+    // (the director's shots come fitted already; body view and Explore are composed for 16:9 the same way)
+    if (VIEW === 'body' || explore?.active) shot = { ...shot, fov: fitFov(shot.fov ?? 35, window.innerWidth / Math.max(1, window.innerHeight)) };
     lastShot = shot;
     const camU = shot.camPos;
 
